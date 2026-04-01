@@ -137,14 +137,22 @@ class SearchResultItem(QWidget):
         self.thumb = QLabel()
         self.thumb.setFixedSize(160, 90)
         blank = QPixmap(160, 90)
-        blank.fill(QColor("#000000"))
+        blank.fill(QColor("#313244"))  # Catppuccin surface0
         self.thumb.setPixmap(blank)
-        self.thumb.setStyleSheet("background:#000;border:1px solid #00ff88;")
+        self.thumb.setStyleSheet("""
+            background: #313244;
+            border: 2px solid #45475a;
+            border-radius: 6px;
+        """)
         root.addWidget(self.thumb)
 
         text = QVBoxLayout()
         title = QLabel(entry.get("title", "Unknown"))
-        title.setStyleSheet("color:#00ff88;font-weight:600;")
+        title.setStyleSheet("""
+            color: #cdd6f4;
+            font-weight: 600;
+            font-size: 11pt;
+        """)
         title.setWordWrap(True)
         text.addWidget(title)
 
@@ -160,7 +168,10 @@ class SearchResultItem(QWidget):
                 pass
 
         meta_lbl = QLabel(" | ".join(meta))
-        meta_lbl.setStyleSheet("color:#66ffcc;font-size:9pt;")
+        meta_lbl.setStyleSheet("""
+            color: #a6adc8;
+            font-size: 9pt;
+        """)
         text.addWidget(meta_lbl)
 
         root.addLayout(text)
@@ -208,7 +219,7 @@ class SearchResultItem(QWidget):
             )
 
             final = QPixmap(160, 90)
-            final.fill(QColor("#000000"))
+            final.fill(QColor("#313244"))  # Catppuccin surface0
 
             painter = QPainter(final)
             painter.drawPixmap(
@@ -260,13 +271,18 @@ class MainWindow(QWidget):
 
         v = QVBoxLayout(self)
 
-        title = QLabel("mpvTube :: YouTube → mpv")
-        title.setStyleSheet("color:#00ff88;font-size:20pt;")
+        title = QLabel("🎬 mpvTube")
+        title.setStyleSheet("""
+            color: #89b4fa;
+            font-size: 24pt;
+            font-weight: bold;
+            margin-bottom: 10px;
+        """)
         v.addWidget(title)
 
         bar = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("search or paste url")
+        self.search.setPlaceholderText("🔍 Search YouTube or paste video URL...")
         self.search.returnPressed.connect(self.start_search)
         bar.addWidget(self.search)
 
@@ -286,23 +302,92 @@ class MainWindow(QWidget):
         v.addWidget(self.results)
 
     def _style(self):
-        QApplication.instance().setFont(QFont("Courier New"))
+        # Catppuccin Mocha theme - modern dark theme
         self.setStyleSheet("""
-            QWidget { background:#0b0e14;color:#c0caf5; }
-            QLineEdit,QSpinBox {
-                background:#000;border:1px solid #00ff88;padding:6px;
-                color:#00ff88;
+            QWidget {
+                background: #1e1e2e;
+                color: #cdd6f4;
+                font-family: 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+                font-size: 10pt;
             }
+            
+            QLabel {
+                color: #cdd6f4;
+            }
+            
+            QLineEdit, QSpinBox {
+                background: #313244;
+                border: 2px solid #45475a;
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #cdd6f4;
+                selection-background-color: #89b4fa;
+            }
+            
+            QLineEdit:focus, QSpinBox:focus {
+                border-color: #89b4fa;
+                background: #45475a;
+            }
+            
             QPushButton {
-                background:#000;border:1px solid #00ff88;
-                color:#00ff88;padding:6px;
+                background: #89b4fa;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+                color: #1e1e2e;
+                font-weight: 600;
             }
-            QPushButton:hover { background:#003322; }
+            
+            QPushButton:hover {
+                background: #b4befe;
+            }
+            
+            QPushButton:pressed {
+                background: #74c7ec;
+            }
+            
             QListWidget {
-                background:#000;border:1px solid #00ff88;
+                background: #181825;
+                border: 2px solid #313244;
+                border-radius: 8px;
+                alternate-background-color: #313244;
             }
+            
+            QListWidget::item {
+                padding: 4px;
+                border-radius: 6px;
+                margin: 2px;
+            }
+            
             QListWidget::item:selected {
-                background:#003322;
+                background: #89b4fa;
+                color: #1e1e2e;
+            }
+            
+            QListWidget::item:hover {
+                background: #45475a;
+            }
+            
+            QDialog QPushButton {
+                background: #a6e3a1;
+                color: #1e1e2e;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-weight: 500;
+                min-width: 80px;
+            }
+            
+            QDialog QPushButton:hover {
+                background: #94e2d5;
+            }
+            
+            QDialog QPushButton#cancel_btn {
+                background: #f38ba8;
+            }
+            
+            QDialog QPushButton#cancel_btn:hover {
+                background: #eba0ac;
             }
         """)
 
@@ -364,9 +449,11 @@ class MainWindow(QWidget):
             audio_formats = []
             
             for f in formats:
-                if f.get("vcodec") != "none" and f.get("height"):
+                # Video formats: have video codec and height, or are combined formats
+                if f.get("height") and f.get("vcodec") != "none":
                     video_formats.append(f)
-                elif f.get("vcodec") == "none" and f.get("abr"):
+                # Audio formats: have audio codec but no video codec
+                elif f.get("abr") and f.get("vcodec") == "none":
                     audio_formats.append(f)
             
             # Sort video by height descending
@@ -403,9 +490,13 @@ class MainWindow(QWidget):
                 seen_audio.add(fid)
                 
                 abr = f.get('abr', '?')
+                if isinstance(abr, (int, float)):
+                    abr = f"{int(abr)}kbps"
+                else:
+                    abr = f"{abr}kbps"
                 acodec = f.get('acodec', '').split('.')[0] if f.get('acodec') else ''
                 
-                label = f"{abr}kbps"
+                label = f"{abr}"
                 if acodec and acodec != 'mp4a':
                     label += f" ({acodec})"
                 
@@ -418,17 +509,18 @@ class MainWindow(QWidget):
                 video_list.setCurrentRow(0)
             if audio_list.count() > 0:
                 # Select a good quality audio, not necessarily the best
-                # Look for 128kbps or 160kbps, otherwise pick middle option
+                # Look for formats around 128kbps, otherwise pick middle option
                 best_row = 0
                 for i in range(audio_list.count()):
                     item = audio_list.item(i)
                     label = item.text()
-                    if '128kbps' in label or '160kbps' in label:
+                    # Look for formats with 96kbps or higher
+                    if any(bitrate in label for bitrate in ['96kbps', '128kbps', '130kbps', '160kbps', '192kbps', '256kbps']):
                         best_row = i
                         break
-                # If no preferred found, pick roughly middle quality
-                if best_row == 0 and audio_list.count() > 2:
-                    best_row = audio_list.count() // 2
+                # If no preferred found, pick roughly middle quality (avoid lowest)
+                if best_row == 0 and audio_list.count() > 1:
+                    best_row = max(1, audio_list.count() // 2)  # At least second option
                 audio_list.setCurrentRow(best_row)
             
             v.addWidget(video_list)
@@ -437,8 +529,10 @@ class MainWindow(QWidget):
             # Play button
             btn_layout = QHBoxLayout()
             play_btn = QPushButton("PLAY")
+            play_btn.setObjectName("play_btn")
             play_btn.clicked.connect(lambda: self._play_with_formats(url, video_list, audio_list, dlg))
             cancel_btn = QPushButton("CANCEL")
+            cancel_btn.setObjectName("cancel_btn")
             cancel_btn.clicked.connect(dlg.reject)
             
             btn_layout.addWidget(play_btn)
