@@ -81,7 +81,15 @@ class ThumbnailWorker(threading.Thread):
 
     def run(self):
         try:
-            urllib.request.urlretrieve(self.url, self.path)
+            req = urllib.request.Request(
+                self.url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            )
+            with urllib.request.urlopen(req) as response:
+                with open(self.path, 'wb') as f:
+                    f.write(response.read())
             self.signals.results.emit(self.path)
         except Exception as e:
             self.signals.error.emit(str(e))
@@ -159,9 +167,16 @@ class SearchResultItem(QWidget):
         self._load_thumbnail()
 
     def _load_thumbnail(self):
-        url = self.entry.get("thumbnail")
-        if not url:
+        thumbnails = self.entry.get("thumbnails", [])
+        if not thumbnails:
             return
+
+        # Get the best quality thumbnail (usually the last one)
+        thumb_info = thumbnails[-1] if thumbnails else None
+        if not thumb_info or not thumb_info.get("url"):
+            return
+
+        url = thumb_info["url"]
 
         cache_dir = os.path.join(
             os.path.expanduser("~"), ".youtube_mpv_cache", "thumbs"
@@ -181,28 +196,31 @@ class SearchResultItem(QWidget):
         ThumbnailWorker(url, path, signals).start()
 
     def _apply_thumbnail(self, path):
-        pix = QPixmap(path)
-        if pix.isNull():
-            return
+        try:
+            pix = QPixmap(path)
+            if pix.isNull():
+                return
 
-        pix = pix.scaled(
-            160, 90,
-            Qt.KeepAspectRatioByExpanding,
-            Qt.SmoothTransformation
-        )
+            pix = pix.scaled(
+                160, 90,
+                Qt.KeepAspectRatioByExpanding,
+                Qt.SmoothTransformation
+            )
 
-        final = QPixmap(160, 90)
-        final.fill(QColor("#000000"))
+            final = QPixmap(160, 90)
+            final.fill(QColor("#000000"))
 
-        painter = QPainter(final)
-        painter.drawPixmap(
-            (160 - pix.width()) // 2,
-            (90 - pix.height()) // 2,
-            pix
-        )
-        painter.end()
+            painter = QPainter(final)
+            painter.drawPixmap(
+                (160 - pix.width()) // 2,
+                (90 - pix.height()) // 2,
+                pix
+            )
+            painter.end()
 
-        self.thumb.setPixmap(final)
+            self.thumb.setPixmap(final)
+        except Exception:
+            pass  # Ignore errors, perhaps widget deleted
 
 
 # =========================
@@ -302,13 +320,16 @@ class MainWindow(QWidget):
         YTSearchWorker(q, self.count.value(), sig).start()
 
     def _populate(self, entries):
-        for e in entries:
-            item = QListWidgetItem()
-            widget = SearchResultItem(e)
-            item.setSizeHint(QSize(400, 100))
-            item.setData(Qt.UserRole, e.get("webpage_url") or e.get("url"))
-            self.results.addItem(item)
-            self.results.setItemWidget(item, widget)
+        try:
+            for e in entries:
+                item = QListWidgetItem()
+                widget = SearchResultItem(e)
+                item.setSizeHint(QSize(400, 100))
+                item.setData(Qt.UserRole, e.get("webpage_url") or e.get("url"))
+                self.results.addItem(item)
+                self.results.setItemWidget(item, widget)
+        except Exception:
+            pass  # Ignore if UI deleted
 
     def play_selected(self, item):
         url = item.data(Qt.UserRole)
@@ -320,39 +341,135 @@ class MainWindow(QWidget):
         FormatsWorker(url, sig).start()
 
     def show_formats_dialog(self, url, formats):
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Select Quality")
-        dlg.setStyleSheet(self.styleSheet())
-        dlg.resize(500, 400)
+        try:
+            dlg = QDialog(self)
+            dlg.setWindowTitle("Select Quality")
+            dlg.setStyleSheet(self.styleSheet())
+            dlg.resize(700, 500)
 
-        v = QVBoxLayout(dlg)
-        listw = QListWidget()
+            v = QVBoxLayout(dlg)
+            
+            # Video formats section
+            v.addWidget(QLabel("Video Quality:"))
+            video_list = QListWidget()
+            video_list.setMaximumHeight(200)
+            
+            # Audio formats section  
+            v.addWidget(QLabel("Audio Quality:"))
+            audio_list = QListWidget()
+            audio_list.setMaximumHeight(150)
+            
+            # Separate video and audio formats
+            video_formats = []
+            audio_formats = []
+            
+            for f in formats:
+                if f.get("vcodec") != "none" and f.get("height"):
+                    video_formats.append(f)
+                elif f.get("vcodec") == "none" and f.get("abr"):
+                    audio_formats.append(f)
+            
+            # Sort video by height descending
+            video_formats.sort(key=lambda x: x.get("height", 0), reverse=True)
+            # Sort audio by bitrate descending, but prioritize good quality (128kbps+)
+            audio_formats.sort(key=lambda x: (x.get("abr", 0) >= 128, x.get("abr", 0)), reverse=True)
+            
+            seen_video = set()
+            for f in video_formats:
+                fid = f.get("format_id")
+                if not fid or fid in seen_video:
+                    continue
+                seen_video.add(fid)
+                
+                height = f.get('height', '?')
+                fps = f.get('fps', '')
+                vcodec = f.get('vcodec', '').split('.')[0] if f.get('vcodec') else ''
+                
+                label = f"{height}p"
+                if fps and fps > 30:
+                    label += f" {fps}fps"
+                if vcodec and vcodec != 'avc1':
+                    label += f" ({vcodec})"
+                
+                it = QListWidgetItem(label)
+                it.setData(Qt.UserRole, fid)
+                video_list.addItem(it)
+            
+            seen_audio = set()
+            for f in audio_formats:
+                fid = f.get("format_id")
+                if not fid or fid in seen_audio:
+                    continue
+                seen_audio.add(fid)
+                
+                abr = f.get('abr', '?')
+                acodec = f.get('acodec', '').split('.')[0] if f.get('acodec') else ''
+                
+                label = f"{abr}kbps"
+                if acodec and acodec != 'mp4a':
+                    label += f" ({acodec})"
+                
+                it = QListWidgetItem(label)
+                it.setData(Qt.UserRole, fid)
+                audio_list.addItem(it)
+            
+            # Select first items by default
+            if video_list.count() > 0:
+                video_list.setCurrentRow(0)
+            if audio_list.count() > 0:
+                # Select a good quality audio, not necessarily the best
+                # Look for 128kbps or 160kbps, otherwise pick middle option
+                best_row = 0
+                for i in range(audio_list.count()):
+                    item = audio_list.item(i)
+                    label = item.text()
+                    if '128kbps' in label or '160kbps' in label:
+                        best_row = i
+                        break
+                # If no preferred found, pick roughly middle quality
+                if best_row == 0 and audio_list.count() > 2:
+                    best_row = audio_list.count() // 2
+                audio_list.setCurrentRow(best_row)
+            
+            v.addWidget(video_list)
+            v.addWidget(audio_list)
+            
+            # Play button
+            btn_layout = QHBoxLayout()
+            play_btn = QPushButton("PLAY")
+            play_btn.clicked.connect(lambda: self._play_with_formats(url, video_list, audio_list, dlg))
+            cancel_btn = QPushButton("CANCEL")
+            cancel_btn.clicked.connect(dlg.reject)
+            
+            btn_layout.addWidget(play_btn)
+            btn_layout.addWidget(cancel_btn)
+            v.addLayout(btn_layout)
+            
+            dlg.exec()
+        except Exception:
+            pass
 
-        seen = set()
-        for f in sorted(formats, key=lambda x: x.get("height", 0) or 0, reverse=True):
-            fid = f.get("format_id")
-            if not fid or fid in seen:
-                continue
-            seen.add(fid)
-
-            label = f"{f.get('height','?')}p"
-            if f.get("vcodec") == "none":
-                label = f"audio {f.get('abr','')}kbps"
-
-            it = QListWidgetItem(label)
-            it.setData(Qt.UserRole, fid)
-            listw.addItem(it)
-
-        listw.itemActivated.connect(
-            lambda it: self._play_with_format(url, it.data(Qt.UserRole), dlg)
-        )
-
-        v.addWidget(QLabel("Double-click quality:"))
-        v.addWidget(listw)
-        dlg.exec()
-
-    def _play_with_format(self, url, fmt, dlg):
+    def _play_with_formats(self, url, video_list, audio_list, dlg):
         dlg.accept()
+        
+        video_format = None
+        audio_format = None
+        
+        if video_list.currentItem():
+            video_format = video_list.currentItem().data(Qt.UserRole)
+        if audio_list.currentItem():
+            audio_format = audio_list.currentItem().data(Qt.UserRole)
+        
+        # Combine formats: video+audio or just video or just audio
+        if video_format and audio_format:
+            fmt = f"{video_format}+{audio_format}"
+        elif video_format:
+            fmt = video_format
+        elif audio_format:
+            fmt = audio_format
+        else:
+            return  # No format selected
+        
         os.execvp(
             self.storage.data["mpv_path"],
             [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url]
