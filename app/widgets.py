@@ -1,67 +1,76 @@
 import hashlib
 import os
-from datetime import datetime
-
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QColor, QPixmap
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QFrame
 
 from app.workers import WorkerSignals, ThumbnailWorker
 
-
 class SearchResultItem(QWidget):
-    def __init__(self, entry):
+    def __init__(self, entry, theme):
         super().__init__()
         self.entry = entry
+        self.theme = theme
+        self._init_ui()
 
+    def _init_ui(self):
+        t = self.theme
         root = QHBoxLayout(self)
-        root.setSpacing(14)
+        root.setContentsMargins(0, 0, 0, 0)
+        
+        self.container = QFrame()
+        self.container.setObjectName("item_container")
+        
+        # Structure changes based on theme
+        if t["name"] == "BRUTALIST":
+            layout = QVBoxLayout(self.container)
+            layout.setContentsMargins(20, 20, 20, 20)
+            self.container.setStyleSheet(f"background: {t['bg']}; border: {t['border']};")
+        elif t["name"] == "VOGUE":
+            layout = QHBoxLayout(self.container)
+            layout.setContentsMargins(0, 30, 0, 30)
+            self.container.setStyleSheet(f"border-bottom: 0.5px solid #dcdcdc;")
+        else: # CYBERPUNK
+            layout = QHBoxLayout(self.container)
+            layout.setContentsMargins(10, 10, 10, 10)
+            self.container.setStyleSheet(f"background: {t['item_bg']}; border-left: 4px solid {t['text']};")
+
+        root.addWidget(self.container)
 
         self.thumb = QLabel()
-        self.thumb.setFixedSize(168, 94)
-        blank = QPixmap(168, 94)
-        blank.fill(QColor("#20242f"))
-        self.thumb.setPixmap(blank)
-        self.thumb.setStyleSheet("background:#20242f; border:1px solid #3f4558; border-radius:8px;")
-        root.addWidget(self.thumb)
+        thumb_size = (180, 101) if t["name"] == "BRUTALIST" else (140, 78)
+        self.thumb.setFixedSize(*thumb_size)
+        self.thumb.setStyleSheet(f"background: #000; border: {t.get('item_border', 'none')};")
+        layout.addWidget(self.thumb)
 
-        text = QVBoxLayout()
-        title = QLabel(entry.get("title", "Unknown"))
-        title.setObjectName("result_title")
-        title.setWordWrap(True)
-        text.addWidget(title)
+        text_v = QVBoxLayout()
+        self.title_lbl = QLabel(self.entry.get("title", "UNKNOWN"))
+        self.title_lbl.setWordWrap(True)
+        self.title_lbl.setStyleSheet(f"""
+            color: {t['text'] if t['name'] != 'VOGUE' else t['text_alt']};
+            font-family: {t['font']};
+            font-weight: bold;
+            font-size: {'14pt' if t['name'] == 'BRUTALIST' else '11pt'};
+            text-transform: {'uppercase' if t['name'] == 'BRUTALIST' else 'none'};
+        """)
+        text_v.addWidget(self.title_lbl)
 
-        meta = []
-        if entry.get("duration"):
-            m, s = divmod(entry["duration"], 60)
-            meta.append(f"{int(m)}:{int(s):02d}")
-        if entry.get("uploader"):
-            meta.append(entry["uploader"])
-        if entry.get("upload_date"):
-            try:
-                d = datetime.strptime(entry["upload_date"], "%Y%m%d")
-                meta.append(d.strftime("%Y-%m-%d"))
-            except Exception:
-                pass
-
-        meta_lbl = QLabel(" • ".join(meta))
-        meta_lbl.setObjectName("result_meta")
-        text.addWidget(meta_lbl)
-
-        root.addLayout(text)
+        meta = QLabel(f"{self.entry.get('uploader', '')} // {self.entry.get('duration_string', '')}")
+        meta.setStyleSheet(f"color: {t['accent']}; font-family: {t['font']}; font-size: 8pt;")
+        text_v.addWidget(meta)
+        
+        layout.addLayout(text_v)
         self._load_thumbnail()
 
     def _load_thumbnail(self):
         thumbs = self.entry.get("thumbnails", [])
-        if not thumbs:
-            return
-        info = thumbs[-1]
-        if not info.get("url"):
-            return
+        if not thumbs: return
+        url = thumbs[-1].get("url")
+        if not url: return
 
         cache_dir = os.path.join(os.path.expanduser("~"), ".youtube_mpv_cache", "thumbs")
         os.makedirs(cache_dir, exist_ok=True)
-        path = os.path.join(cache_dir, hashlib.md5(info["url"].encode()).hexdigest() + ".jpg")
+        path = os.path.join(cache_dir, hashlib.md5(url.encode()).hexdigest() + ".jpg")
 
         if os.path.exists(path):
             self._apply_thumbnail(path)
@@ -69,16 +78,28 @@ class SearchResultItem(QWidget):
 
         signals = WorkerSignals()
         signals.results.connect(self._apply_thumbnail)
-        ThumbnailWorker(info["url"], path, signals).start()
+        ThumbnailWorker(url, path, signals).start()
 
     def _apply_thumbnail(self, path):
         pix = QPixmap(path)
-        if pix.isNull():
-            return
-        pix = pix.scaled(168, 94, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-        final = QPixmap(168, 94)
-        final.fill(QColor("#20242f"))
-        painter = QPainter(final)
-        painter.drawPixmap((168 - pix.width()) // 2, (94 - pix.height()) // 2, pix)
-        painter.end()
-        self.thumb.setPixmap(final)
+        if pix.isNull(): return
+        size = self.thumb.size()
+        pix = pix.scaled(size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        self.thumb.setPixmap(pix)
+
+class LoadingSpinner(QLabel):
+    def __init__(self, theme):
+        super().__init__()
+        self.theme = theme
+        self.chars = ["█", "▓", "▒", "░", " "] if theme["name"] == "BRUTALIST" else ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self.idx = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self._update)
+        self.setAlignment(Qt.AlignCenter)
+        self.setStyleSheet(f"color: {theme['accent']}; font-size: 24pt;")
+
+    def start(self): self.timer.start(100); self.show()
+    def stop(self): self.timer.stop(); self.hide()
+    def _update(self):
+        self.setText(self.chars[self.idx])
+        self.idx = (self.idx + 1) % len(self.chars)

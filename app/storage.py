@@ -1,7 +1,6 @@
 import json
 import os
 
-
 class StorageManager:
     def __init__(self):
         self.config_path = os.path.join(os.path.expanduser("~"), ".youtube_mpv_config.json")
@@ -19,9 +18,8 @@ class StorageManager:
             "history": [],
             "favorites": [],
             "settings": {
-                "default_quality": "best",
-                "auto_start_last": False,
-                "max_results": 10,
+                "theme": "CYBERPUNK",
+                "max_results": 15
             },
         }
 
@@ -29,11 +27,27 @@ class StorageManager:
         with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
 
+    def set_theme(self, theme_name):
+        self.data["settings"]["theme"] = theme_name
+        self.save()
+
     def add_to_history(self, query):
-        if query not in self.data["history"]:
-            self.data["history"].insert(0, query)
-            self.data["history"] = self.data["history"][:20]
-            self.save()
+        if query in self.data["history"]:
+            self.data["history"].remove(query)
+        self.data["history"].insert(0, query)
+        self.data["history"] = self.data["history"][:25]
+        self.save()
+
+    def add_favorite(self, title, url, thumb):
+        if any(f["url"] == url for f in self.data["favorites"]):
+            return
+        self.data["favorites"].insert(0, {"title": title, "url": url, "thumb": thumb})
+        self.data["favorites"] = self.data["favorites"][:50]
+        self.save()
+
+    def remove_favorite(self, url):
+        self.data["favorites"] = [f for f in self.data["favorites"] if f["url"] != url]
+        self.save()
 
     def get_setting(self, k, d=None):
         return self.data["settings"].get(k, d)
