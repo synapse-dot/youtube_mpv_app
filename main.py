@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QListWidget, QListWidgetItem, QLabel, QDialog, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal, QObject, QSize
-from PySide6.QtGui import QFont, QPainter, QColor, QPixmap
+from PySide6.QtGui import QPainter, QColor, QPixmap
 
 
 # =========================
@@ -271,7 +271,7 @@ class MainWindow(QWidget):
 
         v = QVBoxLayout(self)
 
-        title = QLabel("🎬 mpvTube")
+        title = QLabel("mpvTube")
         title.setStyleSheet("""
             color: #89b4fa;
             font-size: 24pt;
@@ -291,9 +291,9 @@ class MainWindow(QWidget):
         self.count.setValue(self.storage.get_setting("max_results", 10))
         bar.addWidget(self.count)
 
-        btn = QPushButton("SEARCH")
-        btn.clicked.connect(self.start_search)
-        bar.addWidget(btn)
+        self.search_btn = QPushButton("SEARCH")
+        self.search_btn.clicked.connect(self.start_search)
+        bar.addWidget(self.search_btn)
 
         v.addLayout(bar)
 
@@ -301,11 +301,16 @@ class MainWindow(QWidget):
         self.results.itemActivated.connect(self.play_selected)
         v.addWidget(self.results)
 
+        self.status = QLabel("Ready")
+        self.status.setObjectName("status_label")
+        self.status.setAlignment(Qt.AlignLeft)
+        v.addWidget(self.status)
+
     def _style(self):
         # Catppuccin Mocha theme - modern dark theme
         self.setStyleSheet("""
             QWidget {
-                background: #1e1e2e;
+                background: #181a20;
                 color: #cdd6f4;
                 font-family: 'Segoe UI', 'Inter', 'Roboto', sans-serif;
                 font-size: 10pt;
@@ -330,42 +335,54 @@ class MainWindow(QWidget):
             }
             
             QPushButton {
-                background: #89b4fa;
-                border: none;
+                background: #7aa2f7;
+                border: 1px solid #86acef;
                 border-radius: 8px;
                 padding: 8px 16px;
-                color: #1e1e2e;
+                color: #111319;
                 font-weight: 600;
             }
             
             QPushButton:hover {
-                background: #b4befe;
+                background: #8eb0f8;
             }
             
             QPushButton:pressed {
-                background: #74c7ec;
+                background: #6898ef;
+            }
+
+            QPushButton:disabled {
+                background: #45475a;
+                border: 1px solid #5c5f77;
+                color: #8f94b0;
             }
             
             QListWidget {
-                background: #181825;
-                border: 2px solid #313244;
+                background: #12131a;
+                border: 1px solid #313244;
                 border-radius: 8px;
                 alternate-background-color: #313244;
             }
             
             QListWidget::item {
-                padding: 4px;
+                padding: 6px;
                 border-radius: 6px;
                 margin: 2px;
             }
             
             QListWidget::item:selected {
-                background: #89b4fa;
-                color: #1e1e2e;
+                background: #7aa2f7;
+                color: #111319;
             }
             
             QListWidget::item:hover {
-                background: #45475a;
+                background: #3a3d52;
+            }
+
+            QLabel#status_label {
+                color: #9aa0bf;
+                font-size: 9pt;
+                padding: 4px 2px 0 2px;
             }
             
             QDialog QPushButton {
@@ -399,30 +416,73 @@ class MainWindow(QWidget):
         self.results.clear()
         self.storage.add_to_history(q)
 
+        self.search.setEnabled(False)
+        self.count.setEnabled(False)
+        self.search_btn.setEnabled(False)
+        self.search_btn.setText("SEARCHING...")
+        self.status.setText(f"Searching for: {q}")
+
+
         sig = WorkerSignals()
         sig.results.connect(self._populate)
+        sig.error.connect(lambda e: self._show_search_error(e))
+        sig.finished.connect(self._search_finished)
 
         YTSearchWorker(q, self.count.value(), sig).start()
 
+
+    def _show_search_error(self, error_text):
+        self.status.setText("Search failed.")
+        QMessageBox.critical(self, "Search Error", f"Could not complete search.\n\n{error_text}")
+
+    def _search_finished(self):
+        self.search.setEnabled(True)
+        self.count.setEnabled(True)
+        self.search_btn.setEnabled(True)
+        self.search_btn.setText("SEARCH")
+        if self.results.count() == 0 and not self.status.text().startswith("No results"):
+            self.status.setText("Ready")
+
+    def _resolve_entry_url(self, entry):
+        url = entry.get("webpage_url") or entry.get("url")
+        if not url:
+            return None
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+        return f"https://www.youtube.com/watch?v={url}"
+
     def _populate(self, entries):
         try:
+            if not entries:
+                self.status.setText("No results found. Try another query.")
+                return
+
+            added = 0
             for e in entries:
                 item = QListWidgetItem()
                 widget = SearchResultItem(e)
                 item.setSizeHint(QSize(400, 100))
-                item.setData(Qt.UserRole, e.get("webpage_url") or e.get("url"))
+                item.setData(Qt.UserRole, self._resolve_entry_url(e))
                 self.results.addItem(item)
                 self.results.setItemWidget(item, widget)
+                added += 1
+            self.status.setText(f"Showing {added} result(s). Double-click to pick quality.")
         except Exception:
-            pass  # Ignore if UI deleted
+            self.status.setText("UI refreshed during search.")
 
     def play_selected(self, item):
         url = item.data(Qt.UserRole)
+        if not url:
+            QMessageBox.warning(self, "Invalid Selection", "This result has no playable URL.")
+            return
+
+        self.status.setText("Loading available qualities...")
 
         sig = WorkerSignals()
         sig.results.connect(lambda f: self.show_formats_dialog(url, f))
         sig.error.connect(lambda e: QMessageBox.critical(self, "Error", e))
 
+        sig.finished.connect(lambda: self.status.setText("Ready"))
         FormatsWorker(url, sig).start()
 
     def show_formats_dialog(self, url, formats):
@@ -564,10 +624,23 @@ class MainWindow(QWidget):
         else:
             return  # No format selected
         
-        os.execvp(
-            self.storage.data["mpv_path"],
-            [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url]
-        )
+        self.status.setText("Opening mpv...")
+
+        try:
+            subprocess.run(
+                [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url],
+                check=True
+            )
+        except FileNotFoundError:
+            QMessageBox.critical(
+                self,
+                "mpv Not Found",
+                "mpv was not found. Install mpv or set the correct mpv path in ~/.youtube_mpv_config.json."
+            )
+        except subprocess.CalledProcessError as e:
+            QMessageBox.critical(self, "mpv Error", f"mpv exited with code {e.returncode}.")
+        finally:
+            self.status.setText("Ready")
 
 
 # =========================
