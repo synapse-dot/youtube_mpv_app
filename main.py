@@ -416,32 +416,20 @@ class MainWindow(QWidget):
         self.results.clear()
         self.storage.add_to_history(q)
 
-        self.search.setEnabled(False)
-        self.count.setEnabled(False)
         self.search_btn.setEnabled(False)
         self.search_btn.setText("SEARCHING...")
-        self.status.setText(f"Searching for: {q}")
-
 
         sig = WorkerSignals()
         sig.results.connect(self._populate)
-        sig.error.connect(lambda e: self._show_search_error(e))
+        sig.error.connect(lambda e: QMessageBox.critical(self, "Search Error", f"Could not complete search.\n\n{e}"))
         sig.finished.connect(self._search_finished)
 
         YTSearchWorker(q, self.count.value(), sig).start()
 
 
-    def _show_search_error(self, error_text):
-        self.status.setText("Search failed.")
-        QMessageBox.critical(self, "Search Error", f"Could not complete search.\n\n{error_text}")
-
     def _search_finished(self):
-        self.search.setEnabled(True)
-        self.count.setEnabled(True)
         self.search_btn.setEnabled(True)
         self.search_btn.setText("SEARCH")
-        if self.results.count() == 0 and not self.status.text().startswith("No results"):
-            self.status.setText("Ready")
 
     def _resolve_entry_url(self, entry):
         url = entry.get("webpage_url") or entry.get("url")
@@ -475,8 +463,6 @@ class MainWindow(QWidget):
         if not url:
             QMessageBox.warning(self, "Invalid Selection", "This result has no playable URL.")
             return
-
-        self.status.setText("Loading available qualities...")
 
         sig = WorkerSignals()
         sig.results.connect(lambda f: self.show_formats_dialog(url, f))
@@ -624,8 +610,6 @@ class MainWindow(QWidget):
         else:
             return  # No format selected
         
-        self.status.setText("Opening mpv...")
-
         try:
             subprocess.run(
                 [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url],
@@ -639,8 +623,6 @@ class MainWindow(QWidget):
             )
         except subprocess.CalledProcessError as e:
             QMessageBox.critical(self, "mpv Error", f"mpv exited with code {e.returncode}.")
-        finally:
-            self.status.setText("Ready")
 
 
 # =========================
