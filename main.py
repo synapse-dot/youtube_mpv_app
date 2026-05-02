@@ -291,9 +291,9 @@ class MainWindow(QWidget):
         self.count.setValue(self.storage.get_setting("max_results", 10))
         bar.addWidget(self.count)
 
-        btn = QPushButton("SEARCH")
-        btn.clicked.connect(self.start_search)
-        bar.addWidget(btn)
+        self.search_btn = QPushButton("SEARCH")
+        self.search_btn.clicked.connect(self.start_search)
+        bar.addWidget(self.search_btn)
 
         v.addLayout(bar)
 
@@ -399,10 +399,28 @@ class MainWindow(QWidget):
         self.results.clear()
         self.storage.add_to_history(q)
 
+        self.search_btn.setEnabled(False)
+        self.search_btn.setText("SEARCHING...")
+
         sig = WorkerSignals()
         sig.results.connect(self._populate)
+        sig.error.connect(lambda e: QMessageBox.critical(self, "Search Error", f"Could not complete search.\n\n{e}"))
+        sig.finished.connect(self._search_finished)
 
         YTSearchWorker(q, self.count.value(), sig).start()
+
+
+    def _search_finished(self):
+        self.search_btn.setEnabled(True)
+        self.search_btn.setText("SEARCH")
+
+    def _resolve_entry_url(self, entry):
+        url = entry.get("webpage_url") or entry.get("url")
+        if not url:
+            return None
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+        return f"https://www.youtube.com/watch?v={url}"
 
     def _populate(self, entries):
         try:
@@ -410,7 +428,7 @@ class MainWindow(QWidget):
                 item = QListWidgetItem()
                 widget = SearchResultItem(e)
                 item.setSizeHint(QSize(400, 100))
-                item.setData(Qt.UserRole, e.get("webpage_url") or e.get("url"))
+                item.setData(Qt.UserRole, self._resolve_entry_url(e))
                 self.results.addItem(item)
                 self.results.setItemWidget(item, widget)
         except Exception:
@@ -418,6 +436,9 @@ class MainWindow(QWidget):
 
     def play_selected(self, item):
         url = item.data(Qt.UserRole)
+        if not url:
+            QMessageBox.warning(self, "Invalid Selection", "This result has no playable URL.")
+            return
 
         sig = WorkerSignals()
         sig.results.connect(lambda f: self.show_formats_dialog(url, f))
@@ -564,10 +585,19 @@ class MainWindow(QWidget):
         else:
             return  # No format selected
         
-        os.execvp(
-            self.storage.data["mpv_path"],
-            [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url]
-        )
+        try:
+            subprocess.run(
+                [self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url],
+                check=True
+            )
+        except FileNotFoundError:
+            QMessageBox.critical(
+                self,
+                "mpv Not Found",
+                "mpv was not found. Install mpv or set the correct mpv path in ~/.youtube_mpv_config.json."
+            )
+        except subprocess.CalledProcessError as e:
+            QMessageBox.critical(self, "mpv Error", f"mpv exited with code {e.returncode}.")
 
 
 # =========================
