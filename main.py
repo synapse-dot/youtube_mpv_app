@@ -25,16 +25,30 @@ class MainWindow(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-        # Nuke layout
         if self.layout():
-            QWidget().setLayout(self.layout())
+            # Clean up old references to avoid RuntimeError
+            attrs = ['sidebar', 'body', 'history_list', 'fav_list', 'results', 
+                     'spinner', 'search_in', 'search_btn', 'sort_sel', 'status', 'theme_sel', 'logo']
+            for a in attrs:
+                if hasattr(self, a):
+                    delattr(self, a)
+            
+            # Nuke the layout
+            old_layout = self.layout()
+            dummy = QWidget()
+            dummy.setLayout(old_layout)
+            # Layout is now reparented and will be cleaned up
             
         t = self.current_theme
         root = QHBoxLayout(self) if t["layout"] == "sidebar-left" else QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # 1. Sidebar (Cyberpunk only)
+        # Common Logo
+        self.logo = QLabel("MPV_TUBE")
+        self.logo.setObjectName("logo")
+
+        # Sidebar (Left)
         if t["layout"] == "sidebar-left":
             self.sidebar = QFrame()
             self.sidebar.setFixedWidth(280)
@@ -42,52 +56,51 @@ class MainWindow(QWidget):
             side_v = QVBoxLayout(self.sidebar)
             side_v.setContentsMargins(20, 30, 20, 30)
             
-            logo = QLabel("MPV_TUBE // 2.0")
-            logo.setObjectName("logo")
-            side_v.addWidget(logo)
+            self.logo.setText("MPV_TUBE // 2.0")
+            side_v.addWidget(self.logo)
 
             side_v.addWidget(QLabel("UPLINKS"))
-            self.history_list = QListWidget(); self.history_list.setObjectName("side_list")
+            self.history_list = QListWidget()
+            self.history_list.setObjectName("side_list")
             self.history_list.itemClicked.connect(lambda it: self._search_direct(it.text()))
             side_v.addWidget(self.history_list)
 
             side_v.addWidget(QLabel("BOOKMARKS"))
-            self.fav_list = QListWidget(); self.fav_list.setObjectName("side_list")
+            self.fav_list = QListWidget()
+            self.fav_list.setObjectName("side_list")
             self.fav_list.itemDoubleClicked.connect(self._play_fav)
             side_v.addWidget(self.fav_list)
 
             side_v.addStretch()
             side_v.addWidget(QLabel("THEME_ENGINE"))
             self.theme_sel = QComboBox()
-            for th in Themes.get_all(): self.theme_sel.addItem(th["name"])
+            for th in Themes.get_all():
+                self.theme_sel.addItem(th["name"])
             self.theme_sel.setCurrentText(t["name"])
             self.theme_sel.currentTextChanged.connect(self._change_theme)
             side_v.addWidget(self.theme_sel)
             
             root.addWidget(self.sidebar)
 
-        # 2. Main Body
+        # Body Frame
         self.body = QFrame()
         body_v = QVBoxLayout(self.body)
         
-        # Brutalist / Vogue Top Nav
         if t["layout"] != "sidebar-left":
             top_nav = QHBoxLayout()
             top_nav.setContentsMargins(t["item_padding"], 20, t["item_padding"], 0)
             
-            logo = QLabel("MPV_TUBE")
-            logo.setObjectName("logo")
-            top_nav.addWidget(logo)
-            
+            top_nav.addWidget(self.logo)
             top_nav.addStretch()
+            
             self.theme_sel = QComboBox()
-            for th in Themes.get_all(): self.theme_sel.addItem(th["name"])
+            for th in Themes.get_all():
+                self.theme_sel.addItem(th["name"])
             self.theme_sel.setCurrentText(t["name"])
             self.theme_sel.currentTextChanged.connect(self._change_theme)
             top_nav.addWidget(self.theme_sel)
             body_v.addLayout(top_nav)
 
-        # Search Control
         search_v = QVBoxLayout()
         search_v.setContentsMargins(t["item_padding"], 40, t["item_padding"], 20)
         
@@ -107,13 +120,11 @@ class MainWindow(QWidget):
         search_v.addLayout(search_h)
         body_v.addLayout(search_v)
 
-        # Results
         self.results = QListWidget()
         self.results.setObjectName("results")
         self.results.itemActivated.connect(self.play_selected)
         body_v.addWidget(self.results)
 
-        # Footer
         footer = QHBoxLayout()
         footer.setContentsMargins(t["item_padding"], 10, t["item_padding"], 10)
         self.status = QLabel("SYSTEM_READY")
@@ -150,66 +161,122 @@ class MainWindow(QWidget):
     def _refresh_side(self):
         if hasattr(self, 'history_list'):
             self.history_list.clear()
-            for h in self.storage.data["history"]: self.history_list.addItem(h)
+            for h in self.storage.data["history"]:
+                self.history_list.addItem(h)
         if hasattr(self, 'fav_list'):
             self.fav_list.clear()
             for f in self.storage.data["favorites"]:
-                it = QListWidgetItem(f["title"]); it.setData(Qt.UserRole, f["url"]); self.fav_list.addItem(it)
+                it = QListWidgetItem(f["title"])
+                it.setData(Qt.UserRole, f["url"])
+                self.fav_list.addItem(it)
 
     def _search_direct(self, q):
-        self.search_in.setText(q); self.start_search()
+        self.search_in.setText(q)
+        self.start_search()
 
-    def _play_fav(self, item): self._get_formats(item.data(Qt.UserRole))
+    def _play_fav(self, item):
+        self._get_formats(item.data(Qt.UserRole))
 
     def start_search(self):
-        q = self.search_in.text().strip(); if not q: return
-        self.results.clear(); self.storage.add_to_history(q); self._refresh_side()
-        self.spinner.start(); sig = WorkerSignals()
-        sig.results.connect(self._populate); sig.finished.connect(self.spinner.stop)
+        q = self.search_in.text().strip()
+        if not q:
+            return
+        self.results.clear()
+        self.storage.add_to_history(q)
+        self._refresh_side()
+        self.spinner.start()
+        sig = WorkerSignals()
+        sig.results.connect(self._populate)
+        sig.finished.connect(self.spinner.stop)
         YTSearchWorker(q, self.storage.get_setting("max_results", 15), sig, self.sort_sel.currentText()).start()
 
     def _populate(self, entries):
         for e in entries:
-            it = QListWidgetItem(); widget = SearchResultItem(e, self.current_theme)
-            it.setSizeHint(widget.container.sizeHint()); url = e.get("webpage_url") or e.get("url")
-            if url and not url.startswith("http"): url = f"https://youtube.com/watch?v={url}"
-            it.setData(Qt.UserRole, url); it.setData(Qt.UserRole+1, e); self.results.addItem(it); self.results.setItemWidget(it, widget)
+            it = QListWidgetItem()
+            widget = SearchResultItem(e, self.current_theme)
+            it.setSizeHint(widget.container.sizeHint())
+            url = e.get("webpage_url") or e.get("url")
+            if url and not url.startswith("http"):
+                url = f"https://youtube.com/watch?v={url}"
+            it.setData(Qt.UserRole, url)
+            it.setData(Qt.UserRole + 1, e)
+            self.results.addItem(it)
+            self.results.setItemWidget(it, widget)
 
-    def play_selected(self, item): self._get_formats(item.data(Qt.UserRole))
+    def play_selected(self, item):
+        self._get_formats(item.data(Qt.UserRole))
 
     def _get_formats(self, url):
-        self.spinner.start(); sig = WorkerSignals()
-        sig.results.connect(lambda f: self.show_formats(url, f)); sig.finished.connect(self.spinner.stop)
+        self.spinner.start()
+        sig = WorkerSignals()
+        sig.results.connect(lambda f: self.show_formats(url, f))
+        sig.finished.connect(self.spinner.stop)
         FormatsWorker(url, sig).start()
 
     def show_formats(self, url, formats):
-        dlg = QDialog(self); dlg.setWindowTitle("STREAMS"); dlg.resize(600, 650); dlg.setStyleSheet(self.styleSheet())
-        v = QVBoxLayout(dlg); v.addWidget(QLabel("VIDEO")); vlist = QListWidget(); v.addWidget(vlist)
-        v.addWidget(QLabel("AUDIO")); alist = QListWidget(); v.addWidget(alist)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("STREAMS")
+        dlg.resize(600, 650)
+        dlg.setStyleSheet(self.styleSheet())
+        v = QVBoxLayout(dlg)
+        v.addWidget(QLabel("VIDEO"))
+        vlist = QListWidget()
+        v.addWidget(vlist)
+        v.addWidget(QLabel("AUDIO"))
+        alist = QListWidget()
+        v.addWidget(alist)
+        
         v_s = [f for f in formats if f.get("height") and f.get("vcodec") != "none"]
         a_s = [f for f in formats if f.get("abr") and f.get("vcodec") == "none"]
+        
         for f in sorted(v_s, key=lambda x: x.get("height", 0), reverse=True):
-            it = QListWidgetItem(f"{f.get('height')}P // {f.get('ext')}"); it.setData(Qt.UserRole, f.get("format_id")); vlist.addItem(it)
+            it = QListWidgetItem(f"{f.get('height')}P // {f.get('ext')}")
+            it.setData(Qt.UserRole, f.get("format_id"))
+            vlist.addItem(it)
         for f in sorted(a_s, key=lambda x: x.get("abr", 0), reverse=True):
-            it = QListWidgetItem(f"{int(f.get('abr'))}KBPS"); it.setData(Qt.UserRole, f.get("format_id")); alist.addItem(it)
-        if vlist.count(): vlist.setCurrentRow(0)
-        if alist.count(): alist.setCurrentRow(0)
-        row = QHBoxLayout(); pb = QPushButton("PLAY"); pb.clicked.connect(lambda: self._launch(url, vlist, alist, dlg))
-        fb = QPushButton("BOOKMARK"); fb.clicked.connect(lambda: self._bookmark(url, dlg))
-        row.addWidget(pb); row.addWidget(fb); v.addLayout(row); dlg.exec()
+            it = QListWidgetItem(f"{int(f.get('abr', 0))}KBPS")
+            it.setData(Qt.UserRole, f.get("format_id"))
+            alist.addItem(it)
+            
+        if vlist.count():
+            vlist.setCurrentRow(0)
+        if alist.count():
+            alist.setCurrentRow(0)
+            
+        row = QHBoxLayout()
+        pb = QPushButton("PLAY")
+        pb.clicked.connect(lambda: self._launch(url, vlist, alist, dlg))
+        fb = QPushButton("BOOKMARK")
+        fb.clicked.connect(lambda: self._bookmark(url, dlg))
+        row.addWidget(pb)
+        row.addWidget(fb)
+        v.addLayout(row)
+        dlg.exec()
 
     def _bookmark(self, url, dlg):
-        dlg.accept(); title, thumb = "UNKNOWN", ""
+        dlg.accept()
+        title, thumb = "UNKNOWN", ""
         for i in range(self.results.count()):
-            it = self.results.item(i); e = it.data(Qt.UserRole+1)
-            if it.data(Qt.UserRole) == url: title = e.get("title", title); ts = e.get("thumbnails", []); thumb = ts[-1].get("url", "") if ts else ""; break
-        self.storage.add_favorite(title, url, thumb); self._refresh_side()
+            it = self.results.item(i)
+            e = it.data(Qt.UserRole + 1)
+            if it.data(Qt.UserRole) == url:
+                title = e.get("title", title)
+                ts = e.get("thumbnails", [])
+                thumb = ts[-1].get("url", "") if ts else ""
+                break
+        self.storage.add_favorite(title, url, thumb)
+        self._refresh_side()
 
     def _launch(self, url, vlist, alist, dlg):
-        dlg.accept(); vid = vlist.currentItem().data(Qt.UserRole) if vlist.currentItem() else None
+        dlg.accept()
+        vid = vlist.currentItem().data(Qt.UserRole) if vlist.currentItem() else None
         aid = alist.currentItem().data(Qt.UserRole) if alist.currentItem() else None
         fmt = f"{vid}+{aid}" if (vid and aid) else (vid or aid)
         subprocess.Popen([self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url])
 
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv); w = MainWindow(); w.show(); sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    w = MainWindow()
+    w.show()
+    sys.exit(app.exec())

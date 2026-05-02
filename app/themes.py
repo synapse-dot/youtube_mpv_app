@@ -14,7 +14,7 @@ class Themes:
         "radius": "0px",
         "btn_bg": "#111318",
         "btn_text": "#00ff99",
-        "item_padding": "10px"
+        "item_padding": 10
     }
 
     BRUTALIST = {
@@ -32,7 +32,7 @@ class Themes:
         "radius": "0px",
         "btn_bg": "#ff3e00",
         "btn_text": "#ffffff",
-        "item_padding": "30px"
+        "item_padding": 30
     }
 
     VOGUE = {
@@ -50,7 +50,7 @@ class Themes:
         "radius": "0px",
         "btn_bg": "#121212",
         "btn_text": "#f9f7f2",
-        "item_padding": "40px"
+        "item_padding": 40
     }
 
     @classmethod
