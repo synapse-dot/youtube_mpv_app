@@ -90,6 +90,10 @@ class MainWindow(QWidget):
         self.search_btn = QPushButton("EXECUTE")
         self.search_btn.clicked.connect(self.start_search)
         search_bar.addWidget(self.search_btn)
+        
+        self.sort_sel = QComboBox()
+        self.sort_sel.addItems(["RELEVANCE", "DATE", "VIEWS", "RATING"])
+        search_bar.addWidget(self.sort_sel)
         center_v.addLayout(search_bar)
 
         self.results = QListWidget()
@@ -188,7 +192,7 @@ class MainWindow(QWidget):
         sig = WorkerSignals()
         sig.results.connect(self._populate)
         sig.finished.connect(self.spinner.stop)
-        YTSearchWorker(q, self.storage.get_setting("max_results", 15), sig).start()
+        YTSearchWorker(q, self.storage.get_setting("max_results", 15), sig, self.sort_sel.currentText()).start()
 
     def _populate(self, entries):
         for e in entries:
