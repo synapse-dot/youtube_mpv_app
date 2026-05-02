@@ -1,7 +1,7 @@
 import hashlib
 import os
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, QTimer, QSize
+from PySide6.QtGui import QPixmap, QColor, QPainter
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QFrame
 
 from app.workers import WorkerSignals, ThumbnailWorker
@@ -9,8 +9,7 @@ from app.workers import WorkerSignals, ThumbnailWorker
 class SearchResultItem(QWidget):
     def __init__(self, entry, theme):
         super().__init__()
-        self.entry = entry
-        self.theme = theme
+        self.entry, self.theme = entry, theme
         self._init_ui()
 
     def _init_ui(self):
@@ -21,43 +20,52 @@ class SearchResultItem(QWidget):
         self.container = QFrame()
         self.container.setObjectName("item_container")
         
-        # Structure changes based on theme
         if t["name"] == "BRUTALIST":
             layout = QVBoxLayout(self.container)
             layout.setContentsMargins(20, 20, 20, 20)
-            self.container.setStyleSheet(f"background: {t['bg']}; border: {t['border']};")
+            self.container.setStyleSheet(f"background: #fff; border: 6px solid #000; margin: 10px;")
         elif t["name"] == "VOGUE":
             layout = QHBoxLayout(self.container)
-            layout.setContentsMargins(0, 30, 0, 30)
-            self.container.setStyleSheet(f"border-bottom: 0.5px solid #dcdcdc;")
+            layout.setContentsMargins(0, 40, 0, 40)
+            self.container.setStyleSheet("border-bottom: 1px solid #dcdcdc;")
         else: # CYBERPUNK
             layout = QHBoxLayout(self.container)
-            layout.setContentsMargins(10, 10, 10, 10)
-            self.container.setStyleSheet(f"background: {t['item_bg']}; border-left: 4px solid {t['text']};")
+            layout.setContentsMargins(15, 15, 15, 15)
+            self.container.setStyleSheet(f"background: {t['item_bg']}; border-left: 5px solid {t['text']}; margin: 5px;")
 
         root.addWidget(self.container)
 
         self.thumb = QLabel()
-        thumb_size = (180, 101) if t["name"] == "BRUTALIST" else (140, 78)
-        self.thumb.setFixedSize(*thumb_size)
-        self.thumb.setStyleSheet(f"background: #000; border: {t.get('item_border', 'none')};")
+        t_size = (240, 135) if t["name"] == "BRUTALIST" else (160, 90)
+        self.thumb.setFixedSize(*t_size)
+        self.thumb.setStyleSheet(f"background: #000; border: {t['border_width']} solid {t['border_color']};")
         layout.addWidget(self.thumb)
 
         text_v = QVBoxLayout()
-        self.title_lbl = QLabel(self.entry.get("title", "UNKNOWN"))
+        text_v.setSpacing(5)
+        
+        self.title_lbl = QLabel(self.entry.get("title", "NO_SIGNAL"))
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setStyleSheet(f"""
-            color: {t['text'] if t['name'] != 'VOGUE' else t['text_alt']};
+            color: {t['text'] if t['name'] != 'VOGUE' else t['text']};
             font-family: {t['font']};
-            font-weight: bold;
-            font-size: {'14pt' if t['name'] == 'BRUTALIST' else '11pt'};
-            text-transform: {'uppercase' if t['name'] == 'BRUTALIST' else 'none'};
+            font-weight: 900;
+            font-size: {'16pt' if t['name'] == 'BRUTALIST' else '12pt'};
+            text-transform: {'uppercase' if t['name'] != 'VOGUE' else 'none'};
+            letter-spacing: {'2px' if t['name'] == 'CYBERPUNK' else '0px'};
         """)
         text_v.addWidget(self.title_lbl)
 
-        meta = QLabel(f"{self.entry.get('uploader', '')} // {self.entry.get('duration_string', '')}")
-        meta.setStyleSheet(f"color: {t['accent']}; font-family: {t['font']}; font-size: 8pt;")
-        text_v.addWidget(meta)
+        meta_str = f"{self.entry.get('uploader', 'UNKNOWN')} // {self.entry.get('duration_string', '0:00')}"
+        self.meta_lbl = QLabel(meta_str)
+        self.meta_lbl.setStyleSheet(f"""
+            color: {t['accent']};
+            font-family: {t['font']};
+            font-size: 8pt;
+            opacity: 0.8;
+            text-transform: uppercase;
+        """)
+        text_v.addWidget(self.meta_lbl)
         
         layout.addLayout(text_v)
         self._load_thumbnail()
@@ -83,22 +91,21 @@ class SearchResultItem(QWidget):
     def _apply_thumbnail(self, path):
         pix = QPixmap(path)
         if pix.isNull(): return
-        size = self.thumb.size()
-        pix = pix.scaled(size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        pix = pix.scaled(self.thumb.size(), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         self.thumb.setPixmap(pix)
 
 class LoadingSpinner(QLabel):
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
-        self.chars = ["█", "▓", "▒", "░", " "] if theme["name"] == "BRUTALIST" else ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self.chars = ["█", " ", "█", " "] if theme["name"] == "BRUTALIST" else ["◐", "◓", "◑", "◒"]
         self.idx = 0
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update)
         self.setAlignment(Qt.AlignCenter)
-        self.setStyleSheet(f"color: {theme['accent']}; font-size: 24pt;")
+        self.setStyleSheet(f"color: {theme['accent']}; font-size: 24pt; font-family: {theme['font']};")
 
-    def start(self): self.timer.start(100); self.show()
+    def start(self): self.timer.start(150); self.show()
     def stop(self): self.timer.stop(); self.hide()
     def _update(self):
         self.setText(self.chars[self.idx])

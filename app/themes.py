@@ -9,30 +9,30 @@ class Themes:
         "accent": "#ff0055",
         "font": "'JetBrains Mono', 'Consolas', monospace",
         "layout": "sidebar-left",
-        "spacing": 0,
-        "border": "1px solid #1a1d23",
-        "item_border": "1px solid #1a1d23",
+        "border_width": "1px",
+        "border_color": "#1a1d23",
         "radius": "0px",
-        "padding": "20px",
-        "button_style": "sharp-glow"
+        "btn_bg": "#111318",
+        "btn_text": "#00ff99",
+        "item_padding": "10px"
     }
 
     BRUTALIST = {
         "name": "BRUTALIST",
         "bg": "#ffffff",
-        "sidebar_bg": "#ffffff",
+        "sidebar_bg": "#000000",
         "item_bg": "#ffffff",
         "text": "#000000",
         "text_alt": "#000000",
         "accent": "#ff3e00",
         "font": "'Archivo Black', 'Arial Black', sans-serif",
         "layout": "top-bar",
-        "spacing": 20,
-        "border": "4px solid #000000",
-        "item_border": "4px solid #000000",
+        "border_width": "6px",
+        "border_color": "#000000",
         "radius": "0px",
-        "padding": "40px",
-        "button_style": "heavy-block"
+        "btn_bg": "#ff3e00",
+        "btn_text": "#ffffff",
+        "item_padding": "30px"
     }
 
     VOGUE = {
@@ -41,16 +41,16 @@ class Themes:
         "sidebar_bg": "#f9f7f2",
         "item_bg": "transparent",
         "text": "#121212",
-        "text_alt": "#444444",
+        "text_alt": "#888888",
         "accent": "#c5a059",
         "font": "'Playfair Display', 'Georgia', serif",
         "layout": "centered-minimal",
-        "spacing": 10,
-        "border": "none",
-        "item_border": "0 0 1px 0 solid #dcdcdc",
+        "border_width": "0px",
+        "border_color": "transparent",
         "radius": "0px",
-        "padding": "60px",
-        "button_style": "hairline-elegant"
+        "btn_bg": "#121212",
+        "btn_text": "#f9f7f2",
+        "item_padding": "40px"
     }
 
     @classmethod
