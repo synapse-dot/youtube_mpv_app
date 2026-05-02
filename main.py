@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QListWidget, QListWidgetItem, QLabel, QDialog, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal, QObject, QSize
-from PySide6.QtGui import QFont, QPainter, QColor, QPixmap
+from PySide6.QtGui import QPainter, QColor, QPixmap
 
 
 # =========================
@@ -271,7 +271,7 @@ class MainWindow(QWidget):
 
         v = QVBoxLayout(self)
 
-        title = QLabel("🎬 mpvTube")
+        title = QLabel("mpvTube")
         title.setStyleSheet("""
             color: #89b4fa;
             font-size: 24pt;
@@ -301,11 +301,16 @@ class MainWindow(QWidget):
         self.results.itemActivated.connect(self.play_selected)
         v.addWidget(self.results)
 
+        self.status = QLabel("Ready")
+        self.status.setObjectName("status_label")
+        self.status.setAlignment(Qt.AlignLeft)
+        v.addWidget(self.status)
+
     def _style(self):
         # Catppuccin Mocha theme - modern dark theme
         self.setStyleSheet("""
             QWidget {
-                background: #1e1e2e;
+                background: #181a20;
                 color: #cdd6f4;
                 font-family: 'Segoe UI', 'Inter', 'Roboto', sans-serif;
                 font-size: 10pt;
@@ -330,42 +335,54 @@ class MainWindow(QWidget):
             }
             
             QPushButton {
-                background: #89b4fa;
-                border: none;
+                background: #7aa2f7;
+                border: 1px solid #86acef;
                 border-radius: 8px;
                 padding: 8px 16px;
-                color: #1e1e2e;
+                color: #111319;
                 font-weight: 600;
             }
             
             QPushButton:hover {
-                background: #b4befe;
+                background: #8eb0f8;
             }
             
             QPushButton:pressed {
-                background: #74c7ec;
+                background: #6898ef;
+            }
+
+            QPushButton:disabled {
+                background: #45475a;
+                border: 1px solid #5c5f77;
+                color: #8f94b0;
             }
             
             QListWidget {
-                background: #181825;
-                border: 2px solid #313244;
+                background: #12131a;
+                border: 1px solid #313244;
                 border-radius: 8px;
                 alternate-background-color: #313244;
             }
             
             QListWidget::item {
-                padding: 4px;
+                padding: 6px;
                 border-radius: 6px;
                 margin: 2px;
             }
             
             QListWidget::item:selected {
-                background: #89b4fa;
-                color: #1e1e2e;
+                background: #7aa2f7;
+                color: #111319;
             }
             
             QListWidget::item:hover {
-                background: #45475a;
+                background: #3a3d52;
+            }
+
+            QLabel#status_label {
+                color: #9aa0bf;
+                font-size: 9pt;
+                padding: 4px 2px 0 2px;
             }
             
             QDialog QPushButton {
@@ -424,6 +441,11 @@ class MainWindow(QWidget):
 
     def _populate(self, entries):
         try:
+            if not entries:
+                self.status.setText("No results found. Try another query.")
+                return
+
+            added = 0
             for e in entries:
                 item = QListWidgetItem()
                 widget = SearchResultItem(e)
@@ -431,8 +453,10 @@ class MainWindow(QWidget):
                 item.setData(Qt.UserRole, self._resolve_entry_url(e))
                 self.results.addItem(item)
                 self.results.setItemWidget(item, widget)
+                added += 1
+            self.status.setText(f"Showing {added} result(s). Double-click to pick quality.")
         except Exception:
-            pass  # Ignore if UI deleted
+            self.status.setText("UI refreshed during search.")
 
     def play_selected(self, item):
         url = item.data(Qt.UserRole)
@@ -444,6 +468,7 @@ class MainWindow(QWidget):
         sig.results.connect(lambda f: self.show_formats_dialog(url, f))
         sig.error.connect(lambda e: QMessageBox.critical(self, "Error", e))
 
+        sig.finished.connect(lambda: self.status.setText("Ready"))
         FormatsWorker(url, sig).start()
 
     def show_formats_dialog(self, url, formats):
