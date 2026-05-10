@@ -31,9 +31,9 @@ class YTSearchWorker(threading.Thread):
             s_val = sort_map.get(self.sort, "")
             opts = {"extract_flat": True, "skip_download": True, "quiet": True}
             with YoutubeDL(opts) as ydl:
-                prefix = f"ytsearch{s_val}{self.max_results}:" if s_val else f"ytsearch{self.max_results}:"
-                # Note: yt-dlp search sorting is via specific search prefixes or params
-                info = ydl.extract_info(f"ytsearch{self.max_results}:{self.query}", download=False)
+                # yt-dlp supports youtube search sorting with ytsearch<sort><N>:query
+                query = f"ytsearch{s_val}{self.max_results}:{self.query}" if s_val else f"ytsearch{self.max_results}:{self.query}"
+                info = ydl.extract_info(query, download=False)
                 entries = info.get("entries", [])
                 self.signals.results.emit(entries)
         except Exception as e: self.signals.error.emit(str(e))
