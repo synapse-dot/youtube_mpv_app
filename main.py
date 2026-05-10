@@ -23,7 +23,11 @@ class MainWindow(QWidget):
         "--prefetch-playlist=yes",
         "--cache=yes",
     ]
+<<<<<<< ours
     DEFAULT_LANG = (locale.getdefaultlocale()[0] or "en_US").split("_")[0].lower()
+=======
+    DEFAULT_LANG = ((locale.getlocale()[0] or "en_US")).split("_")[0].lower()
+>>>>>>> theirs
 
     def __init__(self):
         super().__init__()
@@ -306,6 +310,10 @@ class MainWindow(QWidget):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MpvTube launcher")
     parser.add_argument("--gui", action="store_true", help="Run graphical interface")
+<<<<<<< ours
+=======
+    parser.add_argument("--min", action="store_true", help="Run minimal line-based terminal mode")
+>>>>>>> theirs
     args = parser.parse_args()
 
     if args.gui:
@@ -314,5 +322,10 @@ if __name__ == "__main__":
         w.show()
         sys.exit(app.exec())
     else:
+<<<<<<< ours
         from app.tui import run_tui
         run_tui()
+=======
+        from app.tui import run_tui, run_tui_min
+        run_tui_min() if args.min else run_tui()
+>>>>>>> theirs
