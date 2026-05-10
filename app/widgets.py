@@ -1,7 +1,7 @@
 import hashlib
 import os
-from PySide6.QtCore import Qt, QTimer, QSize
-from PySide6.QtGui import QPixmap, QColor, QPainter
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QFrame
 
 from app.workers import WorkerSignals, ThumbnailWorker
@@ -84,9 +84,9 @@ class SearchResultItem(QWidget):
             self._apply_thumbnail(path)
             return
 
-        signals = WorkerSignals()
-        signals.results.connect(self._apply_thumbnail)
-        ThumbnailWorker(url, path, signals).start()
+        self.thumb_signals = WorkerSignals()
+        self.thumb_signals.results.connect(self._apply_thumbnail)
+        ThumbnailWorker(url, path, self.thumb_signals).start()
 
     def _apply_thumbnail(self, path):
         pix = QPixmap(path)

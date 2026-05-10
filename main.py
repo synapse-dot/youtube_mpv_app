@@ -1,12 +1,11 @@
 import subprocess
 import sys
-import os
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QLabel,
-    QDialog, QFrame, QComboBox, QSpacerItem, QSizePolicy
+    QDialog, QFrame, QComboBox, QMessageBox
 )
 
 from app.storage import StorageManager
@@ -123,11 +122,12 @@ class MainWindow(QWidget):
         self.results = QListWidget()
         self.results.setObjectName("results")
         self.results.itemActivated.connect(self.play_selected)
+        self.results.setSpacing(8)
         body_v.addWidget(self.results)
 
         footer = QHBoxLayout()
         footer.setContentsMargins(t["item_padding"], 10, t["item_padding"], 10)
-        self.status = QLabel("SYSTEM_READY")
+        self.status = QLabel("Ready")
         footer.addWidget(self.status)
         self.spinner = LoadingSpinner(t)
         footer.addWidget(self.spinner)
@@ -149,6 +149,7 @@ class MainWindow(QWidget):
             QPushButton:hover {{ background: {t['accent']}; color: {t['bg']}; }}
             QComboBox {{ background: {t['bg']}; border: {t['border_width']} solid {t['border_color']}; padding: 10px; color: {t['text']}; }}
             QListWidget {{ background: transparent; border: none; outline: none; }}
+            QListWidget#results::item {{ border-bottom: 1px solid {t['border_color']}; padding: 4px; }}
             QListWidget#side_list {{ font-size: 9pt; color: {t['text']}; }}
             QListWidget#side_list::item:selected {{ color: {t['accent']}; background: transparent; }}
         """)
@@ -184,13 +185,18 @@ class MainWindow(QWidget):
         self.results.clear()
         self.storage.add_to_history(q)
         self._refresh_side()
+        self.status.setText(f"Searching: {q}")
         self.spinner.start()
         sig = WorkerSignals()
         sig.results.connect(self._populate)
+        sig.error.connect(self._on_worker_error)
         sig.finished.connect(self.spinner.stop)
         YTSearchWorker(q, self.storage.get_setting("max_results", 15), sig, self.sort_sel.currentText()).start()
 
     def _populate(self, entries):
+        if not entries:
+            self.status.setText("No results found")
+            return
         for e in entries:
             it = QListWidgetItem()
             widget = SearchResultItem(e, self.current_theme)
@@ -202,14 +208,20 @@ class MainWindow(QWidget):
             it.setData(Qt.UserRole + 1, e)
             self.results.addItem(it)
             self.results.setItemWidget(it, widget)
+        self.status.setText(f"Found {len(entries)} result(s)")
 
     def play_selected(self, item):
         self._get_formats(item.data(Qt.UserRole))
 
     def _get_formats(self, url):
+        if not url:
+            self._show_error("No valid video URL found for this selection.")
+            return
+        self.status.setText("Loading available formats...")
         self.spinner.start()
         sig = WorkerSignals()
         sig.results.connect(lambda f: self.show_formats(url, f))
+        sig.error.connect(self._on_worker_error)
         sig.finished.connect(self.spinner.stop)
         FormatsWorker(url, sig).start()
 
@@ -229,12 +241,21 @@ class MainWindow(QWidget):
         v_s = [f for f in formats if f.get("height") and f.get("vcodec") != "none"]
         a_s = [f for f in formats if f.get("abr") and f.get("vcodec") == "none"]
         
+        seen_video, seen_audio = set(), set()
         for f in sorted(v_s, key=lambda x: x.get("height", 0), reverse=True):
-            it = QListWidgetItem(f"{f.get('height')}P // {f.get('ext')}")
+            label = f"{f.get('height')}P // {f.get('ext')}"
+            if label in seen_video:
+                continue
+            seen_video.add(label)
+            it = QListWidgetItem(label)
             it.setData(Qt.UserRole, f.get("format_id"))
             vlist.addItem(it)
         for f in sorted(a_s, key=lambda x: x.get("abr", 0), reverse=True):
-            it = QListWidgetItem(f"{int(f.get('abr', 0))}KBPS")
+            label = f"{int(f.get('abr', 0))}KBPS"
+            if label in seen_audio:
+                continue
+            seen_audio.add(label)
+            it = QListWidgetItem(label)
             it.setData(Qt.UserRole, f.get("format_id"))
             alist.addItem(it)
             
@@ -272,7 +293,23 @@ class MainWindow(QWidget):
         vid = vlist.currentItem().data(Qt.UserRole) if vlist.currentItem() else None
         aid = alist.currentItem().data(Qt.UserRole) if alist.currentItem() else None
         fmt = f"{vid}+{aid}" if (vid and aid) else (vid or aid)
-        subprocess.Popen([self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url])
+        if not fmt:
+            self._show_error("No playable format selected.")
+            return
+        try:
+            subprocess.Popen([self.storage.data["mpv_path"], f"--ytdl-format={fmt}", url])
+            self.status.setText("Playback started in mpv")
+        except FileNotFoundError:
+            self._show_error("mpv executable not found. Update your mpv path in config.")
+        except Exception as e:
+            self._show_error(f"Failed to launch mpv: {e}")
+
+    def _on_worker_error(self, msg):
+        self.status.setText("Operation failed")
+        self._show_error(msg)
+
+    def _show_error(self, msg):
+        QMessageBox.critical(self, "Error", msg)
 
 
 if __name__ == "__main__":
