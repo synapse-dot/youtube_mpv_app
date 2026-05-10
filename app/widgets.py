@@ -35,7 +35,7 @@ class SearchResultItem(QWidget):
         text_v = QVBoxLayout()
         text_v.setSpacing(5)
         
-        self.title_lbl = QLabel(self.entry.get("title", "NO_SIGNAL"))
+        self.title_lbl = QLabel(self.entry.get("title", "Untitled video"))
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setStyleSheet(f"""
             color: {t['text']};
@@ -47,7 +47,7 @@ class SearchResultItem(QWidget):
         """)
         text_v.addWidget(self.title_lbl)
 
-        meta_str = f"{self.entry.get('uploader', 'UNKNOWN')} // {self.entry.get('duration_string', '0:00')}"
+        meta_str = f"{self.entry.get('uploader', 'Unknown channel')} • {self.entry.get('duration_string', '0:00')}"
         self.meta_lbl = QLabel(meta_str)
         self.meta_lbl.setStyleSheet(f"""
             color: {t['accent']};

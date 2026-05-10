@@ -58,13 +58,13 @@ class MainWindow(QWidget):
             self.logo.setText("mpvTube // 2.0")
             side_v.addWidget(self.logo)
 
-            side_v.addWidget(QLabel("UPLINKS"))
+            side_v.addWidget(QLabel("Recent searches"))
             self.history_list = QListWidget()
             self.history_list.setObjectName("side_list")
             self.history_list.itemClicked.connect(lambda it: self._search_direct(it.text()))
             side_v.addWidget(self.history_list)
 
-            side_v.addWidget(QLabel("BOOKMARKS"))
+            side_v.addWidget(QLabel("Bookmarks"))
             self.fav_list = QListWidget()
             self.fav_list.setObjectName("side_list")
             self.fav_list.itemDoubleClicked.connect(self._play_fav)
@@ -82,7 +82,7 @@ class MainWindow(QWidget):
         
         search_h = QHBoxLayout()
         self.search_in = QLineEdit()
-        self.search_in.setPlaceholderText("INPUT_QUERY_HERE...")
+        self.search_in.setPlaceholderText("Search YouTube videos")
         self.search_in.returnPressed.connect(self.start_search)
         search_h.addWidget(self.search_in)
         
@@ -90,7 +90,7 @@ class MainWindow(QWidget):
         self.sort_sel.addItems(["RELEVANCE", "DATE", "VIEWS", "RATING"])
         search_h.addWidget(self.sort_sel)
 
-        self.search_btn = QPushButton("EXECUTE")
+        self.search_btn = QPushButton("Search")
         self.search_btn.clicked.connect(self.start_search)
         search_h.addWidget(self.search_btn)
         search_v.addLayout(search_h)
@@ -122,7 +122,7 @@ class MainWindow(QWidget):
             QLabel {{ color: {t['accent']}; font-size: 8pt; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }}
             QLabel#logo {{ color: {t['text']}; font-size: 24pt; font-weight: 900; margin-bottom: 20px; }}
             QLineEdit {{ background: {t['bg']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px; font-size: 11pt; color: {t['text']}; }}
-            QPushButton {{ background: {t['btn_bg']}; color: {t['btn_text']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px 30px; font-weight: 900; text-transform: uppercase; }}
+            QPushButton {{ background: {t['btn_bg']}; color: {t['btn_text']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px 24px; font-weight: 800; }}
             QPushButton:hover {{ background: {t['accent']}; color: {t['bg']}; }}
             QComboBox {{ background: {t['bg']}; border: {t['border_width']} solid {t['border_color']}; padding: 10px; color: {t['text']}; }}
             QListWidget {{ background: transparent; border: none; outline: none; }}
@@ -199,14 +199,14 @@ class MainWindow(QWidget):
 
     def show_formats(self, url, formats):
         dlg = QDialog(self)
-        dlg.setWindowTitle("STREAMS")
+        dlg.setWindowTitle("Choose quality")
         dlg.resize(600, 650)
         dlg.setStyleSheet(self.styleSheet())
         v = QVBoxLayout(dlg)
-        v.addWidget(QLabel("VIDEO"))
+        v.addWidget(QLabel("Video"))
         vlist = QListWidget()
         v.addWidget(vlist)
-        v.addWidget(QLabel("AUDIO"))
+        v.addWidget(QLabel("Audio"))
         alist = QListWidget()
         v.addWidget(alist)
         
@@ -237,9 +237,9 @@ class MainWindow(QWidget):
             alist.setCurrentRow(0)
             
         row = QHBoxLayout()
-        pb = QPushButton("PLAY")
+        pb = QPushButton("Play")
         pb.clicked.connect(lambda: self._launch(url, vlist, alist, dlg))
-        fb = QPushButton("BOOKMARK")
+        fb = QPushButton("Save bookmark")
         fb.clicked.connect(lambda: self._bookmark(url, dlg))
         row.addWidget(pb)
         row.addWidget(fb)
