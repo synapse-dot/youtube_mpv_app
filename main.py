@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QLabel,
-    QDialog, QFrame, QMessageBox
+    QDialog, QFrame, QComboBox, QMessageBox
 )
 
 from app.storage import StorageManager
@@ -18,8 +18,8 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.storage = StorageManager()
-        self.current_theme = Themes.get("DEFAULT")
-        self.setWindowTitle("MpvTube")
+        self.current_theme = Themes.get(self.storage.get_setting("theme", "CYBERPUNK"))
+        self.setWindowTitle("mpvTube // CORE")
         self.resize(1200, 800)
         self._build_ui()
 
@@ -44,7 +44,7 @@ class MainWindow(QWidget):
         root.setSpacing(0)
 
         # Common Logo
-        self.logo = QLabel("MpvTube")
+        self.logo = QLabel("mpvTube")
         self.logo.setObjectName("logo")
 
         # Sidebar (Left)
@@ -55,7 +55,7 @@ class MainWindow(QWidget):
             side_v = QVBoxLayout(self.sidebar)
             side_v.setContentsMargins(20, 30, 20, 30)
             
-            self.logo.setText("MpvTube")
+            self.logo.setText("mpvTube // 2.0")
             side_v.addWidget(self.logo)
 
             side_v.addWidget(QLabel("Recent searches"))
@@ -104,7 +104,7 @@ class MainWindow(QWidget):
 
         footer = QHBoxLayout()
         footer.setContentsMargins(t["item_padding"], 10, t["item_padding"], 10)
-        self.status = QLabel("Ready to search")
+        self.status = QLabel("Ready")
         footer.addWidget(self.status)
         self.spinner = LoadingSpinner(t)
         footer.addWidget(self.spinner)
@@ -119,8 +119,8 @@ class MainWindow(QWidget):
         self.setStyleSheet(f"""
             QWidget {{ background: {t['bg']}; color: {t['text']}; font-family: {t['font']}; }}
             QFrame#sidebar {{ background: {t['sidebar_bg']}; border-right: {t['border_width']} solid {t['border_color']}; }}
-            QLabel {{ color: {t['text_alt']}; font-size: 10pt; font-weight: 700; letter-spacing: 0.2px; }}
-            QLabel#logo {{ color: {t['text']}; font-size: 28pt; font-weight: 900; margin-bottom: 22px; letter-spacing: 0.5px; }}
+            QLabel {{ color: {t['accent']}; font-size: 8pt; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }}
+            QLabel#logo {{ color: {t['text']}; font-size: 24pt; font-weight: 900; margin-bottom: 20px; }}
             QLineEdit {{ background: {t['bg']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px; font-size: 11pt; color: {t['text']}; }}
             QPushButton {{ background: {t['btn_bg']}; color: {t['btn_text']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px 24px; font-weight: 800; }}
             QPushButton:hover {{ background: {t['accent']}; color: {t['bg']}; }}
@@ -215,7 +215,7 @@ class MainWindow(QWidget):
         
         seen_video, seen_audio = set(), set()
         for f in sorted(v_s, key=lambda x: x.get("height", 0), reverse=True):
-            label = f"{f.get('height')}p • {f.get('ext')}"
+            label = f"{f.get('height')}P // {f.get('ext')}"
             if label in seen_video:
                 continue
             seen_video.add(label)
@@ -223,7 +223,7 @@ class MainWindow(QWidget):
             it.setData(Qt.UserRole, f.get("format_id"))
             vlist.addItem(it)
         for f in sorted(a_s, key=lambda x: x.get("abr", 0), reverse=True):
-            label = f"{int(f.get('abr', 0))} kbps"
+            label = f"{int(f.get('abr', 0))}KBPS"
             if label in seen_audio:
                 continue
             seen_audio.add(label)

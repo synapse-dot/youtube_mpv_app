@@ -3,7 +3,8 @@ import os
 
 class StorageManager:
     def __init__(self):
-        self.config_path = os.path.join(os.path.expanduser("~"), ".youtube_mpv_config.json")
+        self.config_path = os.path.join(os.path.expanduser("~"), ".config", "mpvTube", "config.json")
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
         self.data = self._load()
 
     def _load(self):
