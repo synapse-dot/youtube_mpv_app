@@ -67,7 +67,7 @@ class SearchResultItem(QWidget):
         url = thumbs[-1].get("url")
         if not url: return
 
-        cache_dir = os.path.join(os.path.expanduser("~"), ".youtube_mpv_cache", "thumbs")
+        cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "mpvTube", "thumbs")
         os.makedirs(cache_dir, exist_ok=True)
         path = os.path.join(cache_dir, hashlib.md5(url.encode()).hexdigest() + ".jpg")
 
