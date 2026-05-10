@@ -7,7 +7,7 @@ class Themes:
         "text": "#eaf2ff",
         "text_alt": "#c6d4ef",
         "accent": "#6cb4ff",
-        "font": "'JetBrains Mono', 'Consolas', monospace",
+        "font": "'Segoe UI', 'Noto Sans', sans-serif",
         "layout": "sidebar-left",
         "border_width": "1px",
         "border_color": "#293241",
