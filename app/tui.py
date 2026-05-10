@@ -1,9 +1,6 @@
 import locale
 import subprocess
-<<<<<<< ours
-=======
 import curses
->>>>>>> theirs
 
 from yt_dlp import YoutubeDL
 
@@ -11,11 +8,7 @@ from app.storage import StorageManager
 
 
 def _lang_code():
-<<<<<<< ours
-    loc = locale.getdefaultlocale()[0] or "en_US"
-=======
     loc = locale.getlocale()[0] or "en_US"
->>>>>>> theirs
     return loc.split("_")[0].lower()
 
 
@@ -32,11 +25,7 @@ def _pick(prompt, options):
         print("Invalid selection, try again.")
 
 
-<<<<<<< ours
-def run_tui():
-=======
 def run_tui_min():
->>>>>>> theirs
     storage = StorageManager()
     lang = _lang_code()
     print("MpvTube TUI")
@@ -116,8 +105,6 @@ def run_tui_min():
     ]
     subprocess.Popen(cmd)
     print("Playback launched. Exiting TUI.")
-<<<<<<< ours
-=======
 
 
 def _curses_select(stdscr, title, options):
@@ -208,4 +195,3 @@ def run_tui():
     ]
     subprocess.Popen(cmd)
     print("Playback launched. Exiting TUI.")
->>>>>>> theirs
