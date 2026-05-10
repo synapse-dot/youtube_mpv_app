@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QLabel,
-    QDialog, QFrame, QMessageBox
+    QDialog, QFrame, QMessageBox, QComboBox
 )
 
 from app.storage import StorageManager
@@ -255,7 +255,7 @@ class MainWindow(QWidget):
 
     def _bookmark(self, url, dlg):
         dlg.accept()
-        title, thumb = "UNKNOWN", ""
+        title, thumb = "Unknown video", ""
         for i in range(self.results.count()):
             it = self.results.item(i)
             e = it.data(Qt.UserRole + 1)
