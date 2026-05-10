@@ -20,7 +20,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.storage = StorageManager()
         self.current_theme = Themes.get(self.storage.get_setting("theme", "CYBERPUNK"))
-        self.setWindowTitle("MPV_TUBE // CORE")
+        self.setWindowTitle("mpvTube // CORE")
         self.resize(1200, 800)
         self._build_ui()
 
@@ -45,7 +45,7 @@ class MainWindow(QWidget):
         root.setSpacing(0)
 
         # Common Logo
-        self.logo = QLabel("MPV_TUBE")
+        self.logo = QLabel("mpvTube")
         self.logo.setObjectName("logo")
 
         # Sidebar (Left)
@@ -56,7 +56,7 @@ class MainWindow(QWidget):
             side_v = QVBoxLayout(self.sidebar)
             side_v.setContentsMargins(20, 30, 20, 30)
             
-            self.logo.setText("MPV_TUBE // 2.0")
+            self.logo.setText("mpvTube // 2.0")
             side_v.addWidget(self.logo)
 
             side_v.addWidget(QLabel("UPLINKS"))
