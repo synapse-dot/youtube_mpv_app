@@ -27,7 +27,7 @@ class MainWindow(QWidget):
         if self.layout():
             # Clean up old references to avoid RuntimeError
             attrs = ['sidebar', 'body', 'history_list', 'fav_list', 'results', 
-                     'spinner', 'search_in', 'search_btn', 'sort_sel', 'status', 'theme_sel', 'logo']
+                     'spinner', 'search_in', 'search_btn', 'sort_sel', 'status', 'logo']
             for a in attrs:
                 if hasattr(self, a):
                     delattr(self, a)
@@ -71,35 +71,12 @@ class MainWindow(QWidget):
             side_v.addWidget(self.fav_list)
 
             side_v.addStretch()
-            side_v.addWidget(QLabel("THEME_ENGINE"))
-            self.theme_sel = QComboBox()
-            for th in Themes.get_all():
-                self.theme_sel.addItem(th["name"])
-            self.theme_sel.setCurrentText(t["name"])
-            self.theme_sel.currentTextChanged.connect(self._change_theme)
-            side_v.addWidget(self.theme_sel)
-            
             root.addWidget(self.sidebar)
 
         # Body Frame
         self.body = QFrame()
         body_v = QVBoxLayout(self.body)
         
-        if t["layout"] != "sidebar-left":
-            top_nav = QHBoxLayout()
-            top_nav.setContentsMargins(t["item_padding"], 20, t["item_padding"], 0)
-            
-            top_nav.addWidget(self.logo)
-            top_nav.addStretch()
-            
-            self.theme_sel = QComboBox()
-            for th in Themes.get_all():
-                self.theme_sel.addItem(th["name"])
-            self.theme_sel.setCurrentText(t["name"])
-            self.theme_sel.currentTextChanged.connect(self._change_theme)
-            top_nav.addWidget(self.theme_sel)
-            body_v.addLayout(top_nav)
-
         search_v = QVBoxLayout()
         search_v.setContentsMargins(t["item_padding"], 40, t["item_padding"], 20)
         
@@ -143,7 +120,7 @@ class MainWindow(QWidget):
             QWidget {{ background: {t['bg']}; color: {t['text']}; font-family: {t['font']}; }}
             QFrame#sidebar {{ background: {t['sidebar_bg']}; border-right: {t['border_width']} solid {t['border_color']}; }}
             QLabel {{ color: {t['accent']}; font-size: 8pt; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }}
-            QLabel#logo {{ color: {t['text'] if t['name'] != 'BRUTALIST' else t['accent']}; font-size: 28pt; font-weight: 900; margin-bottom: 20px; }}
+            QLabel#logo {{ color: {t['text']}; font-size: 24pt; font-weight: 900; margin-bottom: 20px; }}
             QLineEdit {{ background: {t['bg']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px; font-size: 11pt; color: {t['text']}; }}
             QPushButton {{ background: {t['btn_bg']}; color: {t['btn_text']}; border: {t['border_width']} solid {t['border_color']}; padding: 15px 30px; font-weight: 900; text-transform: uppercase; }}
             QPushButton:hover {{ background: {t['accent']}; color: {t['bg']}; }}
@@ -153,11 +130,6 @@ class MainWindow(QWidget):
             QListWidget#side_list {{ font-size: 9pt; color: {t['text']}; }}
             QListWidget#side_list::item:selected {{ color: {t['accent']}; background: transparent; }}
         """)
-
-    def _change_theme(self, name):
-        self.storage.set_theme(name)
-        self.current_theme = Themes.get(name)
-        self._build_ui()
 
     def _refresh_side(self):
         if hasattr(self, 'history_list'):

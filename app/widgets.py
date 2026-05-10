@@ -20,23 +20,14 @@ class SearchResultItem(QWidget):
         self.container = QFrame()
         self.container.setObjectName("item_container")
         
-        if t["name"] == "BRUTALIST":
-            layout = QVBoxLayout(self.container)
-            layout.setContentsMargins(20, 20, 20, 20)
-            self.container.setStyleSheet(f"background: #fff; border: 6px solid #000; margin: 10px;")
-        elif t["name"] == "VOGUE":
-            layout = QHBoxLayout(self.container)
-            layout.setContentsMargins(0, 40, 0, 40)
-            self.container.setStyleSheet("border-bottom: 1px solid #dcdcdc;")
-        else: # CYBERPUNK
-            layout = QHBoxLayout(self.container)
-            layout.setContentsMargins(15, 15, 15, 15)
-            self.container.setStyleSheet(f"background: {t['item_bg']}; border-left: 5px solid {t['text']}; margin: 5px;")
+        layout = QHBoxLayout(self.container)
+        layout.setContentsMargins(15, 15, 15, 15)
+        self.container.setStyleSheet(f"background: {t['item_bg']}; border-left: 5px solid {t['accent']}; margin: 5px;")
 
         root.addWidget(self.container)
 
         self.thumb = QLabel()
-        t_size = (240, 135) if t["name"] == "BRUTALIST" else (160, 90)
+        t_size = (160, 90)
         self.thumb.setFixedSize(*t_size)
         self.thumb.setStyleSheet(f"background: #000; border: {t['border_width']} solid {t['border_color']};")
         layout.addWidget(self.thumb)
@@ -47,12 +38,12 @@ class SearchResultItem(QWidget):
         self.title_lbl = QLabel(self.entry.get("title", "NO_SIGNAL"))
         self.title_lbl.setWordWrap(True)
         self.title_lbl.setStyleSheet(f"""
-            color: {t['text'] if t['name'] != 'VOGUE' else t['text']};
+            color: {t['text']};
             font-family: {t['font']};
             font-weight: 900;
-            font-size: {'16pt' if t['name'] == 'BRUTALIST' else '12pt'};
-            text-transform: {'uppercase' if t['name'] != 'VOGUE' else 'none'};
-            letter-spacing: {'2px' if t['name'] == 'CYBERPUNK' else '0px'};
+            font-size: 12pt;
+            text-transform: none;
+            letter-spacing: 0px;
         """)
         text_v.addWidget(self.title_lbl)
 
@@ -98,7 +89,7 @@ class LoadingSpinner(QLabel):
     def __init__(self, theme):
         super().__init__()
         self.theme = theme
-        self.chars = ["█", " ", "█", " "] if theme["name"] == "BRUTALIST" else ["◐", "◓", "◑", "◒"]
+        self.chars = ["◐", "◓", "◑", "◒"]
         self.idx = 0
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update)
