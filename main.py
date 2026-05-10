@@ -1,5 +1,7 @@
 import subprocess
 import sys
+import argparse
+import locale
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -21,6 +23,7 @@ class MainWindow(QWidget):
         "--prefetch-playlist=yes",
         "--cache=yes",
     ]
+    DEFAULT_LANG = (locale.getdefaultlocale()[0] or "en_US").split("_")[0].lower()
 
     def __init__(self):
         super().__init__()
@@ -276,7 +279,14 @@ class MainWindow(QWidget):
             self._show_error("No playable format selected.")
             return
         try:
-            cmd = [self.storage.data["mpv_path"], *self.MPV_FAST_FLAGS, f"--ytdl-format={fmt}", url]
+            cmd = [
+                self.storage.data["mpv_path"],
+                *self.MPV_FAST_FLAGS,
+                f"--alang={self.DEFAULT_LANG}",
+                f"--slang={self.DEFAULT_LANG}",
+                f"--ytdl-format={fmt}",
+                url
+            ]
             subprocess.Popen(cmd)
             self.status.setText("Playback started in mpv")
             QApplication.instance().quit()
@@ -294,7 +304,15 @@ class MainWindow(QWidget):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    w = MainWindow()
-    w.show()
-    sys.exit(app.exec())
+    parser = argparse.ArgumentParser(description="MpvTube launcher")
+    parser.add_argument("--gui", action="store_true", help="Run graphical interface")
+    args = parser.parse_args()
+
+    if args.gui:
+        app = QApplication(sys.argv)
+        w = MainWindow()
+        w.show()
+        sys.exit(app.exec())
+    else:
+        from app.tui import run_tui
+        run_tui()
