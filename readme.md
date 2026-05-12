@@ -22,6 +22,14 @@ python main.py --gui  # GUI mode
 python main.py --min  # Minimal TUI mode
 ```
 
+Uninstall (Linux)
+
+```bash
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+
 ## TUI Features
 The Textual-based TUI provides:
 - Interactive search within the terminal.
