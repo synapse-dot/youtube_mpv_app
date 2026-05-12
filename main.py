@@ -2,6 +2,11 @@ import subprocess
 import sys
 import argparse
 import locale
+import os
+import shutil
+import zipfile
+import tempfile
+import urllib.request
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -89,6 +94,20 @@ class MainWindow(QWidget):
         
         search_v = QVBoxLayout()
         search_v.setContentsMargins(t["item_padding"], 40, t["item_padding"], 20)
+
+        mpv_h = QHBoxLayout()
+        self.mpv_path_in = QLineEdit(self.storage.data.get("mpv_path", "mpv"))
+        self.mpv_path_in.setPlaceholderText("Path to mpv executable")
+        mpv_h.addWidget(self.mpv_path_in)
+
+        self.test_mpv_btn = QPushButton("Test mpv")
+        self.test_mpv_btn.clicked.connect(self.test_mpv)
+        mpv_h.addWidget(self.test_mpv_btn)
+
+        self.ffmpeg_btn = QPushButton("Install ffmpeg (auto)")
+        self.ffmpeg_btn.clicked.connect(self.install_ffmpeg_auto)
+        mpv_h.addWidget(self.ffmpeg_btn)
+        search_v.addLayout(mpv_h)
         
         search_h = QHBoxLayout()
         self.search_in = QLineEdit()
@@ -123,6 +142,46 @@ class MainWindow(QWidget):
         root.addWidget(self.body)
         self._apply_styles()
         self._refresh_side()
+
+    def test_mpv(self):
+        mpv_path = self.mpv_path_in.text().strip() or "mpv"
+        actual = shutil.which(mpv_path) if os.path.basename(mpv_path) == mpv_path else mpv_path
+        if not actual or not os.path.exists(actual):
+            self._show_error(f"mpv not found at: {mpv_path}")
+            return
+        self.storage.data["mpv_path"] = mpv_path
+        self.storage.save()
+        QMessageBox.information(self, "mpv OK", f"mpv path saved: {mpv_path}")
+
+    def install_ffmpeg_auto(self):
+        ffmpeg_name = "ffmpeg.exe" if sys.platform.startswith("win") else "ffmpeg"
+        if shutil.which(ffmpeg_name):
+            QMessageBox.information(self, "ffmpeg", "ffmpeg is already available on PATH.")
+            return
+
+        if not sys.platform.startswith("win"):
+            QMessageBox.warning(self, "ffmpeg", "Auto installer is currently implemented for Windows only.")
+            return
+
+        target_dir = os.path.join(os.path.expanduser("~"), ".youtube_mpv", "bin")
+        os.makedirs(target_dir, exist_ok=True)
+        target_path = os.path.join(target_dir, "ffmpeg.exe")
+        url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        self.status.setText("Downloading ffmpeg...")
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                zip_path = os.path.join(td, "ffmpeg.zip")
+                urllib.request.urlretrieve(url, zip_path)
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    member = next((n for n in zf.namelist() if n.endswith("/bin/ffmpeg.exe")), None)
+                    if not member:
+                        raise RuntimeError("Could not locate ffmpeg.exe in archive")
+                    with zf.open(member) as src, open(target_path, "wb") as dst:
+                        dst.write(src.read())
+            self.status.setText("ffmpeg installed")
+            QMessageBox.information(self, "ffmpeg installed", f"Installed to: {target_path}")
+        except Exception as e:
+            self._show_error(f"ffmpeg install failed: {e}")
 
     def _apply_styles(self):
         t = self.current_theme
