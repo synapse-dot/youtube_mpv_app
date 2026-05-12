@@ -19,7 +19,7 @@ class StorageManager:
             "history": [],
             "favorites": [],
             "settings": {
-                "theme": "CYBERPUNK",
+                "theme": "DEFAULT",
                 "max_results": 15
             },
         }
