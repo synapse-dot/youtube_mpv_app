@@ -1,6 +1,5 @@
 import locale
 import subprocess
-import os
 from typing import Dict, Any
 
 from yt_dlp import YoutubeDL
@@ -287,8 +286,8 @@ class MpvTubeApp(App):
             import shutil
             # Verify executable exists
             actual_path = shutil.which(mpv_path)
-            if not actual_path and mpv_path and os.path.isabs(mpv_path):
-                actual_path = mpv_path if (os.path.isfile(mpv_path) and os.access(mpv_path, os.X_OK)) else None
+            if not actual_path and mpv_path and "/" in mpv_path:
+                actual_path = mpv_path if subprocess.os.path.exists(mpv_path) else None
             if not actual_path:
                 raise FileNotFoundError(f"Could not find mpv at '{mpv_path}'")
 
