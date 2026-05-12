@@ -1,43 +1,47 @@
 #!/bin/bash
 
-# MpvTube Installer
-# This script creates a desktop entry for MpvTube
+# MpvTube Idempotent Installer
+# This script sets up the venv, installs requirements, and creates desktop entries.
 
 set -e
 
-echo "Installing MpvTube..."
+echo "--- MpvTube Installation / Update ---"
 
 # Get absolute path of the project directory
 INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PYTHON_BIN="$INSTALL_DIR/.venv/bin/python3"
 
-# Check for virtual environment
-if [ ! -f "$PYTHON_BIN" ]; then
-    echo "Warning: .venv not found. Using system python3."
-    PYTHON_BIN="python3"
-else
-    echo "Found virtual environment: $PYTHON_BIN"
+# 1. Ensure Virtual Environment exists
+if [ ! -d "$INSTALL_DIR/.venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$INSTALL_DIR/.venv"
 fi
 
-# Create a wrapper executable
+# 2. Install/Update requirements
+echo "Checking dependencies..."
+"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
+"$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
+
+# 3. Create/Update wrapper executable
+echo "Creating wrapper script..."
 WRAPPER="$INSTALL_DIR/mpvtube"
 cat <<EOF > "$WRAPPER"
 #!/bin/bash
 cd "$INSTALL_DIR"
-exec "$PYTHON_BIN" main.py "\$@"
+exec "$INSTALL_DIR/.venv/bin/python3" main.py "\$@"
 EOF
 chmod +x "$WRAPPER"
 
-# Define Desktop Entry path
+# 4. Create/Update Desktop Entry
+echo "Updating desktop entry..."
 DESKTOP_DIR="$HOME/.local/share/applications"
 mkdir -p "$DESKTOP_DIR"
 DESKTOP_FILE="$DESKTOP_DIR/mpvtube.desktop"
 
-# Create Desktop Entry
 cat <<EOF > "$DESKTOP_FILE"
 [Desktop Entry]
 Name=MpvTube
-Comment=YouTube player for mpv (TUI)
+Comment=YouTube player for mpv (Modern TUI)
 Exec=$WRAPPER
 Icon=youtube
 Terminal=true
@@ -47,10 +51,6 @@ Keywords=youtube;mpv;tui;video;
 EOF
 
 echo "--------------------------------------------------"
-echo "Success! MpvTube has been installed."
-echo "Desktop Entry: $DESKTOP_FILE"
-echo "Wrapper Script: $WRAPPER"
-echo ""
-echo "You can now launch MpvTube from your application menu"
-echo "or by running: $WRAPPER"
+echo "Done! MpvTube is ready."
+echo "You can run it from your menu or via: $WRAPPER"
 echo "--------------------------------------------------"

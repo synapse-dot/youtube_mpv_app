@@ -1,3 +1,3 @@
 #!/bin/bash
 cd "/home/synapse/Work/projects/mpvTube"
-exec "/home/synapse/Work/projects/mpvTube/.venv/bin/python3" main.py "$@"
+exec "python3" main.py "$@"

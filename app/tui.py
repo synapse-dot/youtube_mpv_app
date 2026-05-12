@@ -247,15 +247,28 @@ class MpvTubeApp(App):
         results_list.focus()
 
     def launch_mpv(self, url: str, fmt: str):
-        self.notify(f"Launching mpv...")
+        self.notify("Preparing playback...", title="MpvTube", severity="information")
+        
+        mpv_path = self.storage.data.get("mpv_path", "mpv")
+        
         cmd = [
-            self.storage.data["mpv_path"], "--no-terminal", "--msg-level=all=no",
+            mpv_path, "--no-terminal", "--msg-level=all=no",
             "--prefetch-playlist=yes", "--cache=yes",
             f"--alang={self.lang}", f"--slang={self.lang}", f"--ytdl-format={fmt}", url,
         ]
-        subprocess.Popen(cmd)
-        # We might want to quit here or stay open. The GUI version stays open but the TUI usually quits on play or stays.
-        # User requested "more of a tui", usually TUI stays until 'q'.
+        
+        try:
+            # Check if mpv exists before trying to run
+            import shutil
+            if not shutil.which(mpv_path):
+                raise FileNotFoundError(f"Executable '{mpv_path}' not found in PATH.")
+
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.notify("mpv launched successfully!", title="Success", severity="information")
+        except FileNotFoundError as e:
+            self.notify(f"[b]Error:[/b] {str(e)}\nPlease check your mpv path in config.", title="Launch Failed", severity="error", timeout=10)
+        except Exception as e:
+            self.notify(f"Unexpected error: {e}", title="Launch Failed", severity="error", timeout=10)
 
 def run_tui():
     app = MpvTubeApp()
