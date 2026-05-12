@@ -249,6 +249,7 @@ class MpvTubeApp(App):
     def launch_mpv(self, url: str, fmt: str):
         self.notify("Preparing playback...", title="MpvTube", severity="information")
         
+        # Use storage path if set, otherwise fallback to system mpv
         mpv_path = self.storage.data.get("mpv_path", "mpv")
         
         cmd = [
@@ -258,17 +259,21 @@ class MpvTubeApp(App):
         ]
         
         try:
-            # Check if mpv exists before trying to run
             import shutil
-            if not shutil.which(mpv_path):
-                raise FileNotFoundError(f"Executable '{mpv_path}' not found in PATH.")
+            # Verify executable exists
+            actual_path = shutil.which(mpv_path)
+            if not actual_path:
+                raise FileNotFoundError(f"Could not find mpv at '{mpv_path}'")
 
+            # Launch in background without closing TUI
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self.notify("mpv launched successfully!", title="Success", severity="information")
+            self.notify("Playback started in mpv", title="Success", severity="information")
+            
         except FileNotFoundError as e:
-            self.notify(f"[b]Error:[/b] {str(e)}\nPlease check your mpv path in config.", title="Launch Failed", severity="error", timeout=10)
+            self.notify(f"[b]Error:[/b] {str(e)}\nPlease install mpv or update path in settings.", 
+                        title="Launch Failed", severity="error", timeout=10)
         except Exception as e:
-            self.notify(f"Unexpected error: {e}", title="Launch Failed", severity="error", timeout=10)
+            self.notify(f"Unexpected error: {str(e)}", title="Launch Failed", severity="error", timeout=10)
 
 def run_tui():
     app = MpvTubeApp()

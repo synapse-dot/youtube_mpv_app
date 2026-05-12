@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MpvTube Idempotent Installer
-# This script sets up the venv, installs requirements, and creates desktop entries.
+# MpvTube Idempotent Installer (System Python Version)
+# This script installs requirements to the user space and creates desktop entries.
 
 set -e
 
@@ -9,30 +9,25 @@ echo "--- MpvTube Installation / Update ---"
 
 # Get absolute path of the project directory
 INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PYTHON_BIN="$INSTALL_DIR/.venv/bin/python3"
 
-# 1. Ensure Virtual Environment exists
-if [ ! -d "$INSTALL_DIR/.venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv "$INSTALL_DIR/.venv"
-fi
+# 1. Install/Update requirements using system pip (user space)
+echo "Checking dependencies (user space)..."
+# We use --break-system-packages for newer distros that enforce PEP 668, 
+# or just regular pip install --user.
+pip3 install --user -r "$INSTALL_DIR/requirements.txt" || \
+pip3 install --user --break-system-packages -r "$INSTALL_DIR/requirements.txt"
 
-# 2. Install/Update requirements
-echo "Checking dependencies..."
-"$INSTALL_DIR/.venv/bin/pip" install --upgrade pip
-"$INSTALL_DIR/.venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
-
-# 3. Create/Update wrapper executable
+# 2. Create/Update wrapper executable
 echo "Creating wrapper script..."
 WRAPPER="$INSTALL_DIR/mpvtube"
 cat <<EOF > "$WRAPPER"
 #!/bin/bash
 cd "$INSTALL_DIR"
-exec "$INSTALL_DIR/.venv/bin/python3" main.py "\$@"
+exec python3 main.py "\$@"
 EOF
 chmod +x "$WRAPPER"
 
-# 4. Create/Update Desktop Entry
+# 3. Create/Update Desktop Entry
 echo "Updating desktop entry..."
 DESKTOP_DIR="$HOME/.local/share/applications"
 mkdir -p "$DESKTOP_DIR"
