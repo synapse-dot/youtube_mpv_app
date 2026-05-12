@@ -1,16 +1,13 @@
 import locale
 import subprocess
-import os
-import asyncio
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 from yt_dlp import YoutubeDL
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Input, ListItem, ListView, Static, Label
 from textual.containers import Container, Vertical, Horizontal
-from textual.screen import Screen, ModalScreen
+from textual.screen import ModalScreen
 from textual.binding import Binding
-from textual.worker import Worker, WorkerState
 
 from app.storage import StorageManager
 
@@ -39,8 +36,21 @@ class FormatItem(ListItem):
     def compose(self) -> ComposeResult:
         yield Label(self.label)
 
+
+class HistoryItem(ListItem):
+    def __init__(self, query: str):
+        super().__init__()
+        self.query = query
+
+    def compose(self) -> ComposeResult:
+        yield Label(self.query)
+
 class FormatSelectionModal(ModalScreen):
-    BINDINGS = [("escape", "dismiss", "Cancel")]
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "confirm", "Play"),
+        Binding("tab", "focus_next", "Next"),
+    ]
 
     def __init__(self, url: str, title: str):
         super().__init__()
@@ -100,14 +110,16 @@ class FormatSelectionModal(ModalScreen):
             v_list.append(FormatItem(label, fid))
         for label, fid in self.audios:
             a_list.append(FormatItem(label, fid))
-        if self.videos: v_list.index = 0
-        if self.audios: a_list.index = 0
+        if self.videos:
+            v_list.index = 0
+            v_list.focus()
+        if self.audios:
+            a_list.index = 0
 
-    def on_list_view_selected(self, event: ListView.Selected):
-        # We need both selected to proceed easily, but let's just wait for enter on the container or handle specially
-        pass
+    def action_cancel(self):
+        self.dismiss(None)
 
-    def key_enter(self):
+    def action_confirm(self):
         v_list = self.query_one("#video-list", ListView)
         a_list = self.query_one("#audio-list", ListView)
         
@@ -115,6 +127,9 @@ class FormatSelectionModal(ModalScreen):
         aid = a_list.highlighted_child.format_id if a_list.highlighted_child else None
         
         fmt = f"{vid}+{aid}" if (vid and aid) else (vid or aid)
+        if not fmt:
+            self.app.notify("Pick at least one format", severity="warning")
+            return
         self.dismiss(fmt)
 
 class MpvTubeApp(App):
@@ -142,7 +157,7 @@ class MpvTubeApp(App):
         border: thick $accent;
         padding: 1 2;
         width: 60;
-        height: 30;
+        height: 34;
         align: center middle;
     }
     #modal-title {
@@ -160,7 +175,8 @@ class MpvTubeApp(App):
     ListView {
         background: $surface;
         border: solid $primary;
-        height: 8;
+        height: 1fr;
+        min-height: 8;
     }
     """
 
@@ -218,24 +234,32 @@ class MpvTubeApp(App):
         if entries:
             results_list.focus()
 
-    async def on_list_view_selected(self, event: ListView.Selected):
-        if isinstance(event.item, ResultItem):
-            entry = event.item.entry
+    def _on_format_selected(self, url: str, fmt: str | None):
+        if fmt:
+            self.launch_mpv(url, fmt)
+
+    def on_list_view_selected(self, event: ListView.Selected):
+        item = event.item
+        if isinstance(item, ResultItem):
+            entry = item.entry
             url = entry.get("webpage_url") or entry.get("url")
             if url and not url.startswith("http"):
                 url = f"https://youtube.com/watch?v={url}"
             
             if url:
-                fmt = await self.push_screen_wait(FormatSelectionModal(url, entry.get("title", "Unknown")))
-                if fmt:
-                    self.launch_mpv(url, fmt)
+                self.push_screen(
+                    FormatSelectionModal(url, entry.get("title", "Unknown")),
+                    callback=lambda fmt: self._on_format_selected(url, fmt),
+                )
+        elif isinstance(item, HistoryItem):
+            self.query_one("#search-input", Input).value = item.query
+            self.query_one("#search-input", Input).focus()
 
     def action_show_history(self):
         results_list = self.query_one("#results-list", ListView)
         results_list.clear()
         for h in self.storage.data["history"]:
-            # Reusing ResultItem for history for now, but it might need different data
-            results_list.append(ListItem(Label(h)))
+            results_list.append(HistoryItem(h))
         results_list.focus()
 
     def action_show_bookmarks(self):
@@ -262,6 +286,8 @@ class MpvTubeApp(App):
             import shutil
             # Verify executable exists
             actual_path = shutil.which(mpv_path)
+            if not actual_path and mpv_path and "/" in mpv_path:
+                actual_path = mpv_path if subprocess.os.path.exists(mpv_path) else None
             if not actual_path:
                 raise FileNotFoundError(f"Could not find mpv at '{mpv_path}'")
 
