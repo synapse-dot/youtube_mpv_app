@@ -22,27 +22,36 @@ python main.py --gui  # GUI mode
 python main.py --min  # Minimal TUI mode
 ```
 
+Uninstall (Linux)
+
+```bash
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+
 ## TUI Features
-The new curses-based TUI provides:
+The Textual-based TUI provides:
 - Interactive search within the terminal.
 - Browse results with arrow keys.
 - Choose video and audio quality separately.
 - Manage search history and bookmarks.
 - Quick navigation: `/` for search, `h` for history, `b` for bookmarks.
 
-Run with the included Windows helper `run.bat` (recommended): this script prefers a Conda environment named `youtube_mpv` if `conda` is available; otherwise it creates/uses a local virtualenv `.venv`.
-
-From a PowerShell or cmd prompt in the project folder:
+Windows:
+- Use the included helper:
 
 ```powershell
 cmd /c run.bat
 ```
 
+- If `conda` is available, `run.bat` creates/uses env `youtube_mpv`.
+- Otherwise it creates/uses local `.venv`.
+
 Notes:
-- If `conda` is present, `run.bat` will create and activate an env named `youtube_mpv` and install the requirements there.
-- If `conda` is not present, `run.bat` will create a `.venv` virtual environment and install requirements.
-- The app saves your `mpv` path to `~/.youtube_mpv_config.json` when you click "Test mpv".
-- If `ffmpeg` is missing, the app shows a warning and includes an "Install ffmpeg (auto)" helper that downloads a Windows static build and places `ffmpeg.exe` in `~/.youtube_mpv/bin`.
+- The app stores configuration at `~/.config/mpvTube/config.json`.
+- GUI includes a **Test mpv** button that validates and saves your mpv path.
+- GUI includes **Install ffmpeg (auto)** on Windows, installing `ffmpeg.exe` to `~/.youtube_mpv/bin`.
 
 Notes
 - The app uses `yt-dlp` to query YouTube and list formats. mpv is launched externally with `--ytdl-format=<format_id>` and the YouTube URL.
