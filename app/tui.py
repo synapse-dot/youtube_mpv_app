@@ -142,7 +142,7 @@ class MpvTubeApp(App):
         height: auto;
     }
     #results-list {
-        border: rounded $accent;
+        border: round $accent;
         margin: 1 2;
     }
     ResultItem {
